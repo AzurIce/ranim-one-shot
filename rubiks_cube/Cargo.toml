@@ -1,0 +1,13 @@
+[package]
+name = "rubiks_cube"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+ranim = { git = "https://github.com/AzurIce/ranim", rev = "09d67d0f456c3124cc4e466f407369800f490845" }
+
+[[example]]
+name = "rubiks_cube"
+path = "examples/rubiks_cube/lib.rs"
+crate-type = ["cdylib"]

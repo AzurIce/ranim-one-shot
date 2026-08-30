@@ -1,0 +1,7 @@
+/target
+/output
+*/target
+*/output
+/result
+/result-*
+.DS_Store
