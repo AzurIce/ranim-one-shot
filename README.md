@@ -1,101 +1,131 @@
 # ranim-one-shot
 
-[ranim](https://github.com/AzurIce/ranim) 的 one-shot example 冻结仓库。
+Frozen one-shot examples for [ranim](https://github.com/AzurIce/ranim).
 
-one-shot example 的约定是：**一个原始 prompt 对应一次 agent 任务交付**，交付
-的成片就是最终产物——ranim 后续的 API 变化、渲染管线调整都不应该（也不会）
-反映到已交付的成片上。因此它们不适合继续放在 ranim 主仓库的 `examples/`
-里随主仓库演进，而是迁到这里：
+The one-shot convention: **one original prompt, one agent delivery**. The
+rendered video delivered at the end of the task is the final product — later
+API or rendering-pipeline changes in ranim do not (and must not) alter it.
+That makes these examples a poor fit for the ranim repository's `examples/`,
+which evolve with the main codebase; they live here instead.
 
-- 每个 example 自成一个**独立 cargo package**（没有顶层 workspace），各自
-  持有 `Cargo.lock`，把 ranim 依赖**钉死到渲染出成片时所用的 git rev**；
-- 一个包坏了不影响其他包；不同包可以钉不同的 rev；
-- 仓库 flake 提供与 pin 一致的完整环境（nightly 工具链、ffmpeg、以及用同一
-  份钉定源码构建的 `ranim-cli`），保证任何时候都能复现当年的渲染。
+## Layout
 
-## Example 列表
+- Each example is a standalone cargo package (no top-level workspace) with
+  its own committed `Cargo.lock`, pinning ranim to the exact git rev that
+  produced the delivered render. One broken package never affects the others,
+  and different packages may pin different revs.
+- Each example carries its own flake (`flake.nix` + `flake.lock`) freezing
+  the environment for that pin: the matching nightly toolchain, ffmpeg, and a
+  `ranim-cli` built from the same pinned source — so any render stays
+  reproducible at any time.
+- The root flake is the authoring workspace for the *next* one-shot. On
+  delivery, an example gets its own flake and freezes.
+- CI keeps each example's Cargo.toml rev, flake rev and flake.lock in sync,
+  checks that every flake still evaluates, and `cargo check`s every package
+  against its pin.
 
-| Example | 一句话说明 | 模型 | 生成日期 | ranim pin |
+Detailed archives per example (previews, the original prompt, design and
+iteration notes, model and harness environment) live in each directory's
+`README.md`.
+
+## Examples
+
+| Example | Description | Model | Date | ranim pin |
 |---|---|---|---|---|
-| [bpe_tokenizer](#bpe_tokenizer) | 157 秒四幕科普视频：LLM 如何用 BPE 把文本变成 token，在迷你语料上完整演示「计数 → 合并 → 重复」训练循环与未见词编码 | GLM-5.3-Flash（ZCode） | 2026-08-27 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
-| [convolution_kernels](#convolution_kernels) | 在 12x12 像素网格上演示 Identity / Box Blur / Sharpen / Edge Detect 四种常用 3x3 卷积核的滑动窗口卷积过程与结果对比 | Kimi K3（kimi-code/k3） | 2026-08-19 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
-| [double_pendulum](#double_pendulum) | 三个初始角仅差 0.001 rad 的双摆从重叠到彻底分离，演示混沌的初值敏感性 | Kimi K3（kimi-code/k3） | 2026-08-18 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
-| [rubiks_cube](#rubiks_cube) | 三阶魔方「12 步打乱 → 逆序求解」全过程，3D 魔方与平面展开图同步更新 | Kimi K3（kimi-code/k3） | 2026-08-18 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
-
-各 example 的详细档案（效果图、原始 prompt、设计与实现思路、agent 用
-ranim-cli 迭代的全过程记录、模型与 harness 环境）见各自目录下的 `README.md`。
+| [bpe_tokenizer](#bpe_tokenizer) | 157 s four-act explainer: how LLMs turn text into tokens with BPE — the full count → merge → repeat training loop on a mini corpus, plus encoding of unseen words | GLM-5.3-Flash (ZCode) | 2026-08-27 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
+| [convolution_kernels](#convolution_kernels) | Sliding-window 2D convolution on a 12x12 pixel grid: Identity / Box Blur / Sharpen / Edge Detect, computed pixel by pixel and compared side by side | Kimi K3 (kimi-code/k3) | 2026-08-19 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
+| [double_pendulum](#double_pendulum) | Three double pendulums whose initial angles differ by only 0.001 rad: perfectly overlapping at first, then exponentially diverging — sensitivity to initial conditions | Kimi K3 (kimi-code/k3) | 2026-08-18 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
+| [rubiks_cube](#rubiks_cube) | A 3x3x3 cube scrambled in 12 moves and solved in reverse, with the 3D cube and a live 2D net kept in sync | Kimi K3 (kimi-code/k3) | 2026-08-18 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
 
 ### bpe_tokenizer
 
 ![bpe_tokenizer](bpe_tokenizer/preview.png)
 
-「How LLMs Read Text」——面向零基础观众的 tokenizer 科普。从「LLM 从不逐字
-母读文本」出发，先对比按字符切与按词切两个极端，然后在 7 词迷你语料上完整
-走一遍 BPE 训练循环（拆字符 → 数相邻对 → 合并最高频对 → 重复，四个 merge
-`lo / low / es / est` 全程展示），再把学到的规则应用到训练数据里没有的词
-`slowest` 得到 `s | low | est`，最后落到真实规模（GPT-2 的 50,257 个
-token）与实际后果（strawberry 数 r、数字分块、生僻文字更贵）。屏幕上所有
-计数、合并顺序、编码阶段都由 example 内置的真实 BPE 实现计算，无手写数字。
-157 s @ 1080p60。
+"How LLMs Read Text" — a tokenizer explainer for a general audience. Starting
+from "LLMs never read text letter by letter", it contrasts character-level and
+word-level tokenization, walks the full BPE training loop on a 7-word mini
+corpus (split into characters → count adjacent pairs → merge the most frequent
+→ repeat, with all four merges `lo / low / es / est` shown on screen), applies
+the learned rules to the unseen word `slowest` → `s | low | est`, and closes
+with real-world scale (GPT-2's 50,257 tokens) and its consequences (counting
+the r's in strawberry, digit chunking, more expensive scripts). Every count,
+merge order and encoding phase on screen is computed by the example's real
+BPE implementation — nothing is hand-written. 157 s @ 1080p60.
 
 ### convolution_kernels
 
 ![convolution_kernels](convolution_kernels/preview.png)
 
-在程序化生成的 12x12 灰度图（渐变 + 亮盘 + 斜条）上，逐像素演示四种常用
-3x3 卷积核（Identity / Box Blur / Sharpen / Edge Detect）的滑动窗口计算，
-黄色窗口按扫描序滑过输入，输出像素随计算逐个亮起，结尾并排对比四种结果。
+On a procedurally generated 12x12 grayscale image (gradient + bright disk +
+diagonal stripes), four common 3x3 kernels (Identity / Box Blur / Sharpen /
+Edge Detect) are demonstrated pixel by pixel: a yellow window slides across
+the input in scan order, output pixels light up as they are computed, and the
+four results are compared side by side at the end.
 
 ### double_pendulum
 
 ![double_pendulum](double_pendulum/preview.png)
 
-确定性混沌演示：三个完全相同的双摆仅第二杆初始角相差 0.001 rad，前几秒轨
-迹完全重叠，随后差异被指数放大直至彻底分离——方程是确定性的，长期行为不可
-预测。RK4 积分、拖尾折线可视化末端轨迹。
+Deterministic chaos: three identical double pendulums differ only in the
+second arm's initial angle by 0.001 rad. Their trajectories overlap perfectly
+for the first seconds, then the difference grows exponentially until they
+fully separate — the equations are deterministic, yet long-term behavior is
+unpredictable. RK4 integration, with trailing polylines visualizing the tip
+trajectories.
 
 ### rubiks_cube
 
 ![rubiks_cube](rubiks_cube/preview.png)
 
-三阶魔方 12 步打乱后按逆序还原的全过程：3D 魔方同步旋转，右侧平面展开图实
-时跟综每个面的颜色状态。
+A full 3x3x3 cube scrambled in 12 moves and solved in reverse order: the 3D
+cube rotates while the 2D net on the right tracks the color state of every
+face in real time.
 
-## 使用
+## Usage
 
 ```bash
-# 进入钉定环境：nightly-2026-08-01 工具链 + ffmpeg +
-# 与 pin 同源码构建的 ranim-cli
+# Enter the frozen environment: pinned nightly toolchain, ffmpeg, and a
+# ranim-cli built from the same pinned source.
+cd double_pendulum
 nix develop
 
-# 渲染某个 example（在对应包目录下运行）
-cd bpe_tokenizer
-ranim output bpe_tokenizer --example bpe_tokenizer -p bpe_tokenizer
+# Render (inside the package directory; the exact command — extra
+# --features, etc. — is documented in each example's README)
+ranim output double_pendulum --example double_pendulum
 ```
 
-不用 nix 也可以 `cargo build`（需要满足 `rust-toolchain.toml` 的 nightly
-工具链），但渲染需要自备与 pin 一致的 `ranim-cli`。
+Nix is not strictly required — `cargo build` works with any toolchain
+satisfying the root `rust-toolchain.toml` — but rendering then needs a
+`ranim-cli` matching the pin.
 
-## 绑定策略
+## Pinning policy
 
-- 每个 package 的 `Cargo.toml` 里 `ranim` 的 `rev` 即其 pin，`Cargo.lock`
-  入库，依赖树完全可复现。
-- pin 的选择原则：**成片在哪个 ranim 代码状态下渲染，就钉哪个 rev**，且该
-  rev 必须能从远端拉取——历史改写后被丢弃的 commit 不可作 pin。
-- 迁移备注：double_pendulum / rubiks_cube / convolution_kernels 生成于
-  2026-08-18/19，当时的 main 提交在 ranim 主仓库历史改写后已无法从远端拉
-  取，故无法钉回原 rev；经内容比对，当前 pin 的 `packages/` 与三个成片渲
-  染时的代码状态一致（ranim-core 字节级相同），四个包均在该 pin 上编译通
-  过，bpe_tokenizer 另做了全片重渲染，与原成片逐像素一致（PSNR = inf）。
-- ranim 主仓库 flake 的 `packages.ranim-cli` 目前构建失败（crane fileset
-  遗漏根 crate 源码），本仓库 flake 自行从完整钉定源码树构建 CLI。
+- The `rev` on the `ranim` dependency in each package's `Cargo.toml` is its
+  pin; `Cargo.lock` is committed, so the dependency tree is fully
+  reproducible. CI checks that Cargo.toml, flake.nix and flake.lock all pin
+  the same rev.
+- Rule: **pin the rev whose code state produced the delivered render**, and
+  it must be fetchable from the remote — commits dropped by history rewrites
+  cannot serve as pins.
+- Migration note: double_pendulum / rubiks_cube / convolution_kernels were
+  created on 2026-08-18/19; the then-main commit of the ranim repository is
+  no longer fetchable after a history rewrite, so the original revs cannot be
+  pinned. After content comparison, the pinned rev's `packages/` matches the
+  code state the three renders were produced with (ranim-core is
+  byte-identical); all four packages compile on this pin, and bpe_tokenizer
+  additionally did a full re-render, pixel-identical to the original
+  (PSNR = inf).
+- The ranim repository's flake `packages.ranim-cli` is currently broken (its
+  crane fileset omits the root crate's sources), so the flakes here build the
+  CLI from the full pinned source tree themselves.
 
-## 新增 example
+## Adding an example
 
-1. 新建 `<example>/` 独立 package：`Cargo.toml` 里钉当次渲染所用的 ranim
-   rev，`examples/<example>/lib.rs` 放场景源码（`[[example]]`，
-   `crate-type = ["cdylib"]`），附 `README.md`（效果图 / 原始 prompt /
-   设计与迭代记录 / 模型与 harness 环境）与成片截图。
-2. 若 pin 与现有 flake input 不同，在 `flake.nix` 中新增 input 与对应
-   devShell。
-3. 在本 README 的 Example 列表中登记。
+1. Create `<example>/` as a standalone package: pin the ranim rev used for
+   that render in `Cargo.toml`, put the scene source in
+   `examples/<example>/lib.rs` (`[[example]]`, `crate-type = ["cdylib"]`),
+   and add a `README.md` (preview, original prompt, design & iteration log,
+   model and harness environment) plus final-frame screenshots.
+2. Copy the flake from an existing example into the new directory, point its
+   `ranim` input at the package's pin, and run `nix flake lock`.
+3. Register the example in the table above.
