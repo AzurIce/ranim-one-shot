@@ -1,10 +1,15 @@
 {
-  description = "ranim-one-shot — frozen one-shot ranim examples";
+  # Authoring workspace for the *next* one-shot example.
+  #
+  # Delivered examples each carry their own frozen flake (flake.nix +
+  # flake.lock) in their directory. When delivering a new example, copy one of
+  # those flakes into its directory, point its ranim input at the example's
+  # Cargo.toml rev, and run `nix flake lock` inside it. Bump the pin below
+  # (and the matching nightly) when starting new work.
+  description =
+    "ranim-one-shot — authoring workspace for the next frozen one-shot ranim example";
 
   inputs = {
-    # Every example pins this ranim rev (see each package's Cargo.toml).
-    # If a future example needs a different rev, add another input here and
-    # a matching devShell below.
     ranim.url =
       "github:Azurice/ranim/09d67d0f456c3124cc4e466f407369800f490845";
 

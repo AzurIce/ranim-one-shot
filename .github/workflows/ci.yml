@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sync-pins:
+    name: Pins in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cargo.toml rev == flake.nix rev == flake.lock rev
+        run: |
+          set -euo pipefail
+          rc=0
+          for dir in */; do
+            dir=${dir%/}
+            [ -f "$dir/Cargo.toml" ] && [ -f "$dir/flake.nix" ] || continue
+            cargo_rev=$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}')
+            flake_rev=$(grep -om1 'github:Azurice/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}')
+            lock_rev=$(jq -r '.nodes[.nodes.root.inputs.ranim].locked.rev' "$dir/flake.lock")
+            echo "$dir: cargo=$cargo_rev flake=$flake_rev lock=$lock_rev"
+            if [ -z "$cargo_rev" ] || [ -z "$flake_rev" ] || [ -z "$lock_rev" ] \
+              || [ "$cargo_rev" != "$flake_rev" ] || [ "$cargo_rev" != "$lock_rev" ]; then
+              echo "::error file=$dir::ranim pins disagree between Cargo.toml, flake.nix and flake.lock"
+              rc=1
+            fi
+          done
+          exit $rc
+
+  flake-eval:
+    name: Flake evaluates (${{ matrix.path }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        path:
+          - bpe_tokenizer
+          - convolution_kernels
+          - double_pendulum
+          - rubiks_cube
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      # Evaluation only (no builds); building ranim-cli is left to dev machines.
+      - run: |
+          nix eval --raw ./${{ matrix.path }}#packages.x86_64-linux.ranim-cli.name > /dev/null
+          nix eval --raw ./${{ matrix.path }}#devShells.x86_64-linux.default.name > /dev/null
+
+  cargo-check:
+    name: cargo check (${{ matrix.example }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - bpe_tokenizer
+          - convolution_kernels
+          - double_pendulum
+          - rubiks_cube
+    defaults:
+      run:
+        working-directory: ${{ matrix.example }}
+    steps:
+      - uses: actions/checkout@v4
+      # Keep in sync with the toolchain pinned by these examples' ranim rev
+      # (nightly-2026-08-01, see ranim's .github/workflows/build.yml).
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-08-01
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.example }}
+      - run: cargo check --all-targets
