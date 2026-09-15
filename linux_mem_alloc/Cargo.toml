@@ -1,0 +1,15 @@
+[package]
+name = "linux_mem_alloc"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+ranim = { git = "https://github.com/AzurIce/ranim", rev = "09d67d0f456c3124cc4e466f407369800f490845", features = [
+  "typst",
+] }
+
+[[example]]
+name = "linux_mem_alloc"
+path = "examples/linux_mem_alloc/lib.rs"
+crate-type = ["cdylib"]

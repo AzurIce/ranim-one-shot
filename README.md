@@ -35,6 +35,7 @@ iteration notes, model and harness environment) live in each directory's
 | [bpe_tokenizer](#bpe_tokenizer) | 157 s four-act explainer: how LLMs turn text into tokens with BPE — the full count → merge → repeat training loop on a mini corpus, plus encoding of unseen words | GLM-5.3-Flash (ZCode) | 2026-08-27 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
 | [convolution_kernels](#convolution_kernels) | Sliding-window 2D convolution on a 12x12 pixel grid: Identity / Box Blur / Sharpen / Edge Detect, computed pixel by pixel and compared side by side | Kimi K3 (kimi-code/k3) | 2026-08-19 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
 | [double_pendulum](#double_pendulum) | Three double pendulums whose initial angles differ by only 0.001 rad: perfectly overlapping at first, then exponentially diverging — sensitivity to initial conditions | Kimi K3 (kimi-code/k3) | 2026-08-18 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
+| [linux_mem_alloc](#linux_mem_alloc) | 343 s five-act explainer: where a malloc's bytes really come from — virtual memory, segmentation vs paging, the buddy allocator's split/merge cascades, slab's warm slot reuse, and the full supply chain of one allocation | GLM-5.3-Flash (ZCode) | 2026-09-15 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
 | [rubiks_cube](#rubiks_cube) | A 3x3x3 cube scrambled in 12 moves and solved in reverse, with the 3D cube and a live 2D net kept in sync | Kimi K3 (kimi-code/k3) | 2026-08-18 | [`09d67d0f`](https://github.com/AzurIce/ranim/commit/09d67d0f456c3124cc4e466f407369800f490845) |
 
 ### bpe_tokenizer
@@ -61,6 +62,24 @@ diagonal stripes), four common 3x3 kernels (Identity / Box Blur / Sharpen /
 Edge Detect) are demonstrated pixel by pixel: a yellow window slides across
 the input in scan order, output pixels light up as they are computed, and the
 four results are compared side by side at the end.
+
+### linux_mem_alloc
+
+![linux_mem_alloc](linux_mem_alloc/preview.png)
+
+"Where Does Memory Come From?" — a kernel memory-management explainer for a
+general audience, following one `malloc(100)` down the supply chain. It builds
+the mental model (memory = numbered bytes), exposes the virtual-address lie,
+fails segmentation on a computed external-fragmentation demo (128 KB free, an
+80 KB request impossible), wins with paging (page tables, a bit-level
+translation close-up, multi-level table math derived from constants), then
+hands physical frames to a buddy allocator whose split/merge cascades are
+driven by a real in-file simulation (`p ^ size` buddy lookup, frees merging
+all the way back to one whole block), and finishes with slab (per-type caches,
+warm slot reuse, kmalloc size classes) and a demand-paging payoff: malloc
+returned long before any RAM existed. Every placement, translation and
+cascade on screen comes from the example's real allocators, verified by unit
+tests. 343 s @ 1080p60.
 
 ### double_pendulum
 
