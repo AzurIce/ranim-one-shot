@@ -65,6 +65,16 @@ jobs:
           nix eval --raw ./${{ matrix.run }}#packages.x86_64-linux.ranim-cli.name > /dev/null
           nix eval --raw ./${{ matrix.run }}#devShells.x86_64-linux.default.name > /dev/null
 
+  flake-eval-root:
+    name: Flake evaluates (root authoring flake)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: |
+          nix eval --raw .#packages.x86_64-linux.ranim-cli.name > /dev/null
+          nix eval --raw .#devShells.x86_64-linux.default.name > /dev/null
+
   cargo-check:
     name: cargo check (${{ matrix.run }})
     needs: discover

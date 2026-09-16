@@ -1,44 +1,45 @@
 {
   # Authoring workspace for the *next* one-shot example.
   #
-  # Delivered examples each carry their own frozen flake (flake.nix +
-  # flake.lock) in their directory. When delivering a new example, copy one of
-  # those flakes into its directory, point its ranim input at the example's
-  # Cargo.toml rev, and run `nix flake lock` inside it. Bump the pin below
-  # (and the matching nightly) when starting new work.
+  # Delivered runs each carry their own frozen flake (flake.nix + flake.lock)
+  # in their run directory. When delivering a run, copy this flake into the
+  # run directory, point its ranim input at the run's delivered rev, and run
+  # `nix flake lock` inside it. Bump the pin below (and the matching nightly)
+  # when starting new work.
   description =
     "ranim-one-shot — authoring workspace for the next frozen one-shot ranim example";
 
   inputs = {
-    ranim.url =
-      "github:Azurice/ranim/09d67d0f456c3124cc4e466f407369800f490845";
+    ranim.url = "github:AzurIce/ranim/40d15be64edf5c04a78e2db75908e4a192a8e942";
 
-    # Reuse ranim's own toolchain/ecosystem pins so the CLI, the examples and
-    # CI all build with the same nixpkgs/crane/rust versions.
+    # Reuse ranim's own ecosystem pins so the CLI, the examples and CI all
+    # build with the same nixpkgs/rust versions.
     nixpkgs.follows = "ranim/nixpkgs";
     flake-utils.follows = "ranim/flake-utils";
-    crane.follows = "ranim/crane";
     rust-overlay.follows = "ranim/rust-overlay";
   };
 
   outputs =
-    { self, ranim, nixpkgs, flake-utils, crane, rust-overlay }:
+    { self, ranim, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
         inherit (pkgs) lib;
 
-        # Keep in sync with ranim's CI lint/build jobs
-        # (.github/workflows/build.yml pins nightly-2026-08-01).
-        craneLib = (crane.mkLib pkgs).overrideToolchain (p:
-          p.rust-bin.nightly."2026-08-01".default.override {
-            extensions = [ "rust-src" "rustfmt" "clippy" ];
-          });
+        # Keep in sync with the toolchain pinned by this ranim rev
+        # (ranim's CI pins nightly-2026-08-01).
+        rustToolchain = pkgs.rust-bin.nightly."2026-08-01".default.override {
+          extensions = [ "rust-src" "rustfmt" "clippy" ];
+        };
 
-        # winit/wgpu dlopen the windowing/GL stack at runtime (the binary
-        # only links glibc), so buildInputs alone cannot express the
-        # runtime deps; the package must wrap the binary itself.
+        # Since ranim#211, ranim's own packages.ranim-cli builds the CLI
+        # correctly and wraps it with the runtime libraries winit/wgpu/rodio
+        # dlopen — no local crane build needed here anymore.
+        ranim-cli = ranim.packages.${system}.ranim-cli;
+
+        # The wrapped CLI carries these itself; the shell hook below still
+        # exposes them for plain `cargo run` of an example inside the shell.
         previewRuntimeLibs = [
           pkgs.vulkan-loader
           pkgs.wayland
@@ -46,29 +47,6 @@
           pkgs.libX11
           pkgs.libGL
         ];
-
-        # ranim's flake.packages.ranim-cli omits the root crate's sources
-        # from its crane fileset and fails to build; build the CLI here from
-        # the full pinned source tree instead.
-        ranim-cli = craneLib.buildPackage {
-          src = ranim;
-          strictDeps = true;
-          cargoExtraArgs = "-p ranim-cli";
-          doCheck = false;
-          nativeBuildInputs = [ pkgs.makeWrapper ];
-          # Without this, `nix run .#ranim-cli -- preview` dies with winit's
-          # NoWaylandLib when run outside of `nix develop`.
-          postInstall = ''
-            wrapProgram "$out/bin/ranim" \
-              --prefix LD_LIBRARY_PATH : ${
-                lib.makeLibraryPath previewRuntimeLibs
-              }
-          '';
-        };
-
-        rustToolchain = pkgs.rust-bin.nightly."2026-08-01".default.override {
-          extensions = [ "rust-src" "rustfmt" "clippy" ];
-        };
       in
       {
         packages = { inherit ranim-cli; };
@@ -78,12 +56,7 @@
             rustToolchain
             ranim-cli
             pkgs.ffmpeg
-          ] ++ lib.optionals pkgs.stdenv.isLinux [
-            pkgs.vulkan-loader
-            pkgs.wayland
-            pkgs.libxkbcommon
-            pkgs.libX11
-          ];
+          ] ++ lib.optionals pkgs.stdenv.isLinux previewRuntimeLibs;
 
           # The renderer (wgpu) needs these libraries at runtime.
           shellHook = lib.optionalString pkgs.stdenv.isLinux ''

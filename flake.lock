@@ -57,26 +57,22 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1788065978,
-        "narHash": "sha256-7ADevvqqjyxwCWd5+C7KV2wodD2tIhVN8/ChMeAdh0c=",
-        "owner": "Azurice",
+        "lastModified": 1789536493,
+        "narHash": "sha256-PG5ner1IN4FPF1GxgQdREKxif+bAgRy5iIqocc1axAk=",
+        "owner": "AzurIce",
         "repo": "ranim",
-        "rev": "09d67d0f456c3124cc4e466f407369800f490845",
+        "rev": "40d15be64edf5c04a78e2db75908e4a192a8e942",
         "type": "github"
       },
       "original": {
-        "owner": "Azurice",
+        "owner": "AzurIce",
         "repo": "ranim",
-        "rev": "09d67d0f456c3124cc4e466f407369800f490845",
+        "rev": "40d15be64edf5c04a78e2db75908e4a192a8e942",
         "type": "github"
       }
     },
     "root": {
       "inputs": {
-        "crane": [
-          "ranim",
-          "crane"
-        ],
         "flake-utils": [
           "ranim",
           "flake-utils"

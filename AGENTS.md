@@ -14,7 +14,6 @@ repository *contract* lives here.
 | `base` | The **protocol line**: this file, `skill/`, `topics/*/prompt.md`, `schema/`, `tools/`, CI, and the root authoring flake. Never contains a run implementation, never bumps the root flake's ranim pin (pin bumps happen inside run branches). Every finalized protocol state is tagged `one-shot-base-v<N>`; runs start from the newest tag. |
 | `main` | The **results line**: the protocol plus frozen deliveries under `topics/<topic>/run<N>-<modelslug>/`, and the generated indexes. |
 | `legacy` | Pre-reform archive: five pilot one-shots produced before the protocol existed. Frozen; never merge from it — mine it for reference. |
-| `pins/*` | Mirrors of ranim commits this repository pins, as insurance against upstream history rewrites (see *Pin recovery*). |
 
 `base` and `main` share their root commit, so run branches (which fork from a
 `one-shot-base-v*` tag on `base`) merge back into `main` as normal three-way
@@ -30,7 +29,10 @@ broken, the fix is another run, not a patch.
 
 - The `rev` on the `ranim` dependency in a run's `Cargo.toml` is **the code
   state that produced the delivered render**; `Cargo.toml`, `flake.nix` and
-  `flake.lock` must pin the same rev (CI checks this per run).
+  `flake.lock` must pin the same rev (CI checks this per run). Pin only
+  commits certain to be reachable from a branch of the ranim repository —
+  a pre-reform history rewrite once orphaned the pilot pins (see `legacy`'s
+  root README).
 - Package name and `[[example]]` name always equal the **topic name**, so
   the render command is identical across every run of a topic.
 - Rendered videos are never committed to git; they are published with
@@ -87,12 +89,18 @@ are generated from it by `tools/gen-index.py` and never hand-edited.
 - [ ] Final full render: `ranim output <topic> --example <topic>`
       (plus any features, documented in the run README)
 - [ ] Captures copied into the run directory; `preview.png` is the hero frame
+- [ ] Run flake frozen: copy the root flake into the run directory, point
+      its `ranim` input at the delivered rev, `nix flake lock` committed
 - [ ] `meta.toml` complete (model, harness, protocol ref, run stats, delivery)
 - [ ] Run README per `skill/ranim-one-shot/reference/run-readme-template.md`
 - [ ] `shadow publish` for the mp4; ref committed; URL backfilled into
       `meta.toml` (`video_ref`)
 - [ ] `python3 tools/gen-index.py` run; generated indexes refreshed
 - [ ] CI green, including the protocol-freeze check
+
+> Run flakes pinning a rev that **predates ranim#211** cannot use ranim's
+> own `packages.ranim-cli` (it was broken back then) — in that case keep the
+> local crane build, copying the flake shape from a `legacy` example.
 
 ## Media (shadow)
 
@@ -109,21 +117,6 @@ Credentials live in `.env` (`TOS_ACCESS_KEY` / `TOS_SECRET_KEY`,
 gitignored, never committed). **Never run `shadow free` in this
 repository** — frozen artifacts are immutable and their URLs are permanent;
 CI only runs `shadow check --remote`.
-
-## Pin recovery
-
-If `github:AzurIce/ranim/<rev>` ever becomes unfetchable (upstream history
-rewrite), repoint the affected flake input at the local mirror branch:
-
-```bash
-git fetch https://github.com/AzurIce/ranim <full-sha>
-git branch pins/ranim-<short-sha> FETCH_HEAD
-git push origin pins/ranim-<short-sha>
-# then, in the affected flake.nix:
-#   ranim.url = "github:AzurIce/ranim-one-shot/pins/ranim-<short-sha>";
-```
-
-Existing `pins/*` branches are already-pushed mirrors; prefer them.
 
 ## Adding a topic
 
