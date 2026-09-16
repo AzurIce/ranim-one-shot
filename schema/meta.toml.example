@@ -1,0 +1,47 @@
+# Schema for topics/<topic>/run<N>-<modelslug>/meta.toml
+#
+# Single source of truth for model, harness, protocol, run and delivery
+# facts. `tools/gen-index.py` generates all README indexes and website data
+# from these files; never hand-edit generated output.
+#
+# Copy this file to a new run as `meta.toml` and fill every field.
+# Values may be "" or "unknown" when genuinely unknown — never invent.
+# Dates are YYYY-MM-DD. The ranim pin must equal the revs in the run's
+# Cargo.toml / flake.nix / flake.lock (CI checks).
+
+[topic]
+name = "bpe_tokenizer"                      # must equal the run's cargo package name
+prompt_ref = "topics/bpe_tokenizer/prompt.md"
+
+[model]
+name = "GLM-5.3-Flash"                      # human-facing model name
+id = "builtin:bigmodel-coding-plan/GLM-5.3-Flash"  # id as the harness self-reports it, "" if none
+source = "self-report"                      # "self-report" | "verified" (maintainer-checked)
+notes = ""                                  # e.g. plan/endpoint quirks worth recording
+
+[harness]
+name = "ZCode CLI"                          # e.g. "ZCode CLI", "kimi-code"
+version = "unknown"                         # CLI version if it reports one
+permission_mode = ""                        # agent permission mode, if applicable
+skills = [{ name = "ranim-one-shot", ref = "one-shot-base-v1" }]  # skills provided to the run
+
+[protocol]
+ref = "one-shot-base-v1"                    # starting tag, exactly as forked
+commit = ""                                 # full 40-hex sha of that tag
+skill_modified = false                      # true only if CI's freeze check would fire
+notes = ""                                  # protocol problems hit during the run (input to the next revision)
+
+[run]
+date = 2026-01-01                           # delivery date
+branch = "bpe_tokenizer-run1-glm53flash"    # worktree branch name
+description = ""                            # one-line summary used in generated indexes
+render_rounds = 0                           # full-render + inspect cycles actually performed
+wall_time = ""                              # total wall-clock, e.g. "3h40m" — honest, approximate is fine
+
+[delivery]
+pin = "0000000000000000000000000000000000000000"  # ranim rev that produced the delivered render
+duration_s = 0                              # final video duration in seconds
+resolution = "1920x1080@60"
+tests = 0                                   # unit test count in the run package
+captures = ["preview.png"]                  # committed capture files
+video_ref = ""                              # shadow URL of the mp4, backfilled after `shadow publish`

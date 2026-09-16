@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main, base]
+  pull_request:
+
+jobs:
+  discover:
+    name: Discover runs
+    runs-on: ubuntu-latest
+    outputs:
+      runs: ${{ steps.discover.outputs.runs }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: discover
+        run: |
+          set -euo pipefail
+          # Runs live at topics/<topic>/<run>/Cargo.toml.
+          json=$(find topics -mindepth 3 -maxdepth 3 -name Cargo.toml -printf '%h\n' 2>/dev/null \
+            | sort -u \
+            | jq -Rsc 'split("\n") | map(select(length > 0))')
+          echo "runs=${json}" >> "$GITHUB_OUTPUT"
+          echo "discovered runs: ${json}"
+
+  pins-in-sync:
+    name: Pins in sync (${{ matrix.run }})
+    needs: discover
+    if: needs.discover.outputs.runs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: ${{ fromJSON(needs.discover.outputs.runs) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cargo.toml rev == flake.nix rev == flake.lock rev
+        run: |
+          set -euo pipefail
+          dir=${{ matrix.run }}
+          cargo_rev=$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}')
+          flake_rev=$(grep -om1 'github:Azurice/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}')
+          lock_rev=$(jq -r '.nodes[.nodes.root.inputs.ranim].locked.rev' "$dir/flake.lock")
+          echo "$dir: cargo=$cargo_rev flake=$flake_rev lock=$lock_rev"
+          if [ -z "$cargo_rev" ] || [ -z "$flake_rev" ] || [ -z "$lock_rev" ] \
+            || [ "$cargo_rev" != "$flake_rev" ] || [ "$cargo_rev" != "$lock_rev" ]; then
+            echo "::error file=$dir::ranim pins disagree between Cargo.toml, flake.nix and flake.lock"
+            exit 1
+          fi
+
+  flake-eval:
+    name: Flake evaluates (${{ matrix.run }})
+    needs: discover
+    if: needs.discover.outputs.runs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: ${{ fromJSON(needs.discover.outputs.runs) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      # Evaluation only (no builds); building ranim-cli is left to dev machines.
+      - run: |
+          nix eval --raw ./${{ matrix.run }}#packages.x86_64-linux.ranim-cli.name > /dev/null
+          nix eval --raw ./${{ matrix.run }}#devShells.x86_64-linux.default.name > /dev/null
+
+  cargo-check:
+    name: cargo check (${{ matrix.run }})
+    needs: discover
+    if: needs.discover.outputs.runs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run: ${{ fromJSON(needs.discover.outputs.runs) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.run }}
+    steps:
+      - uses: actions/checkout@v4
+      # The toolchain follows the run's own flake pin, so different runs may
+      # check against different nightlies.
+      - name: Derive toolchain from flake pin
+        id: toolchain
+        run: |
+          set -euo pipefail
+          tc=$(grep -om1 'nightly-[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}' flake.nix || true)
+          [ -n "$tc" ] || { echo "::error::no nightly-YYYY-MM-DD in ${{ matrix.run }}/flake.nix"; exit 1; }
+          echo "toolchain=$tc" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.toolchain.outputs.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.run }}
+      - run: cargo check --all-targets
+
+  protocol-frozen:
+    name: Protocol untouched
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run branches must not modify the protocol
+        run: |
+          set -euo pipefail
+          git fetch origin base
+          if ! git diff --quiet origin/base...HEAD -- skill AGENTS.md schema tools 'topics/*/prompt.md'; then
+            echo "::error::Protocol files changed relative to base."
+            echo "Protocol changes belong on the base branch (with a new one-shot-base-v<N> tag), not in a run."
+            git diff --stat origin/base...HEAD -- skill AGENTS.md schema tools 'topics/*/prompt.md'
+            exit 1
+          fi
+
+  gen-index:
+    name: Generated indexes fresh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 tools/gen-index.py
+          git diff --exit-code

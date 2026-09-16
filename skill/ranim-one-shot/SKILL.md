@@ -1,0 +1,98 @@
+---
+name: ranim-one-shot
+description: 用 ranim 以 one-shot 方式制作一个完整的讲解/科普动画视频：自己整理知识、设计叙事与分镜，以"真实数据驱动动画 + 全片渲染→抽帧目检→迭代"的闭环把片子做对，最后按仓库 AGENTS.md 的约定冻结归档。当任务要求实现 ranim one-shot example、制作讲解动画/科普视频时使用。仓库特定的交付约定（worktree 流程、冻结纪律、meta 归档）以仓库 AGENTS.md 为准，本 skill 只管方法论。
+---
+
+# ranim one-shot 视频制作
+
+核心方法：**一个 prompt，一次交付**。先做知识整理与叙事设计，再写场景
+代码；屏幕上出现的每一个数字都必须来自文件内的真实实现（模拟器/算法 +
+单元测试），没有任何手写的动画数值；每轮全片渲染后抽帧目检，逐条记录
+"问题 → 修复"，直到验收；最后按 AGENTS.md 冻结归档。
+
+## 0. 开工前（仓库约定概要，细节见 AGENTS.md）
+
+- 从最新 `one-shot-base-v<N>` tag 开 worktree，读 `topics/<topic>/prompt.md`。
+- 协议文件（`skill/` `AGENTS.md` `schema/` `tools/` `prompt.md`）在 run 内只读。
+- 参考旧 run：读 main 上的冻结实现（结构模式、坑点），不合入。
+- 环境用根 flake 的 `nix develop`（工具链、ffmpeg、ranim-cli 都钉好了）。
+
+## 1. 知识整理与叙事设计
+
+写代码之前，先把讲什么、按什么顺序讲想清楚，落到 run README 里（这是
+交付物的一部分，不是草稿）：
+
+1. **受众模型**：默认"具备基础计算机素养但对本主题零了解"。每个术语
+   第一次出现必须自解释；类比先行，精确性随后。
+2. **叙事弧线**：先定一条弧线再填内容。常用骨架：
+   钩子（抛出问题）→ 建立心智模型 → 遇到问题/对比方案 → 核心机制
+   （可分多幕）→ 完整回放/点题收尾。参考 pilot：bpe 是"钩子→两难→
+   算法→验证→意义"，linux_mem_alloc 是"钩子→虚构地址空间→段的失败→
+   页的胜利→伙伴批发→slab 零售→完整供应链"。
+3. **分幕与 beat 列表**：每一幕列出 beat（每个 beat = 一句话的画面描述
+   + 时长估计），全片时长由内容决定，不为凑时长注水。
+4. **真实性规划**：明确哪些画面由"文件内的真实实现"驱动（计数、翻译、
+   级联、状态机……），并为它们规划单元测试断言。如果一段动画的数字
+   只能手写，重新设计这段动画。
+
+## 2. 真实数据驱动（本方法论的核心原则）
+
+- **输入精心构造并验证**：演示用的语料/数据要逐对验证过每一步行为
+  （bpe 的 7 词迷你语料保证了四轮 merge 各自唯一最大值且语义正确）。
+- **内置真实实现**：把模拟器/算法写在 example 文件里（如 bpe 的
+  `count_pairs/merge_all/training/encode`，linux_mem 的 `buddy_sim`/
+  `slab_sim`/`seg_first_fit`），动画时间线由模拟输出的**事件序列**驱动。
+- **单测锁行为**：`cargo test` 断言实现的关键行为（碎片失败、翻译结果、
+  级联事件序列、最终回归、热槽位复用……）。测试即动画正确性的锚。
+
+## 3. 场景工程模式（ranim，以 pilot 钉定的 rev 为准）
+
+- **结构**：单 `#[scene]`，一个共享 `AnimStack`；每个物件组持有一条完整
+  生命周期的 `AnimSequence`（`life_seq` 模式：fade in → morph 事件 →
+  fade out → `hold_to(TOTAL)`），用 `forward_to`/`hold_to` 对齐共享时钟；
+  幕与幕之间整幕淡出。参考 `reference/scene-skeleton.rs`（摘自 pilot，
+  以当次 pin 的 API 为准编译验证）。
+- **文字**：typst feature 的 `TextItem`（逐字形 VItem）。坑：markup 里
+  `_` 触发强调（`task_struct` 必须写 `task\_struct`）、`#`/`~` 会被吞
+  （必须转义）；em dash 前后留白偏宽，卡片文案可用 `·`。
+- **高亮只刷盒子不刷字形**：chip 组的第 0 个 item 是方框；给字形加描边
+  会糊成色团（pilot 两次踩坑）。金色高亮一律只改 `items[0]`。
+- **查找类 bug 防御**：按 key 查找物件时警惕同 key 多实例与"已死实体"
+  （pilot 的幽灵标签：Merge 推入同 key 新块后 `position()` 命中死块）。
+  用"标记 consumed + 过滤查找"而不是从 vec 移除。
+- **防御式消费模拟输出**：对模拟结果的每个分支显式 `match`，不 `unwrap`
+  ——pilot 一次渲染期 panic 就是 `unwrap()` 打在新引入的失败分支上。
+- **capture**：`r.insert_time_mark(t, TimeMark::Capture("xx.png"))` 埋点，
+  `preview.png` 是门面帧（选信息密度最高的一幕），另附 2–5 张关键时点
+  capture，交付时复制进 run 目录。
+- **输出**：`#[output(dir = "./output/<topic>")]`，1920x1080 @60fps。
+  索引不足时可手搓图形（pilot 的三线开放式箭头）而不是等上游支持。
+
+## 4. 渲染 → 目检 → 迭代
+
+每轮循环：
+
+1. **全片渲染**：`ranim render <topic> --example <topic> [--features ...]`。
+   记录耗时与帧数。
+2. **抽帧**：`reference/sample-frames.sh <mp4> <outdir> [N]`，每轮均匀
+   抽 15–30 个时点；capture 时点必抽，用视觉能力逐张读图。
+3. **检查清单**：物件重叠 / 越出画幅或被裁切 / 该消失的残留物 / 时序
+   错位（动画晚于/早于叙事）/ 文字发糊 / 配色对比度。
+4. **逐条记录"问题 → 修复"**：这是 run README 迭代章节的素材，也是
+   未来改进 skill 的素材。诚实记录，包括渲染 panic。
+5. 循环直到一轮抽检零新问题，再做终版：`ranim output` 出片 + 全片
+   抽检复核（含全部 capture 时点）。
+
+## 5. 验证
+
+- `cargo check` / `clippy`（含 features）/ `fmt` / `test` 全绿零警告。
+- 终版抽检：确认历史修复全部生效且无回归。
+- `ranim output` 成片成功，mp4 与 captures 就位。
+
+## 6. 归档
+
+- run README 按 `reference/run-readme-template.md`（中文、固定章节：
+  效果图 / 原始 Prompt / 设计与实现思路 / 迭代过程 / 验证情况 / 环境）。
+- `meta.toml` 如实填写：轮数、墙钟时间、模型与 harness（自报信息标
+  `self-report`，不确定就写 `unknown`，不编造）。
+- 交付 checklist 以 AGENTS.md 为准（shadow 发布、索引生成、协议冻结）。

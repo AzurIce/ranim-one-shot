@@ -1,0 +1,13 @@
+# Build outputs, at any depth (runs live at topics/<topic>/<run>/).
+/target/
+/output/
+/result
+/result-*
+.DS_Store
+
+# Shadow-managed media are tracked via refs under .shadow/refs/; only the
+# cache must never be committed.
+.shadow/cache/
+.shadow/tmp/
+
+__pycache__/
