@@ -4,14 +4,17 @@ This repository runs a controlled one-shot experiment: given **one original
 prompt** and a **frozen production protocol**, an AI coding agent delivers a
 complete explainer video built with [ranim](https://github.com/AzurIce/ranim).
 Every delivery is frozen forever. Humans and AI agents alike follow this
-file; the production *methodology* lives in `skill/ranim-one-shot/`, the
+file; the production *methodology* lives in
+`.agents/skills/ranim-one-shot/` (auto-discovered as a workspace skill;
+if a same-named skill exists at user scope, this in-repo copy is the
+authoritative one for runs — read it directly), the
 repository *contract* lives here.
 
 ## Branch topology
 
 | Branch | Purpose |
 |---|---|
-| `base` | The **protocol line**: this file, `skill/`, `topics/*/prompt.md`, `schema/`, `tools/`, CI, and the root authoring flake. Never contains a run implementation, never bumps the root flake's ranim pin (pin bumps happen inside run branches). Every finalized protocol state is tagged `one-shot-base-v<N>`; runs start from the newest tag. |
+| `base` | The **protocol line**: this file, `.agents/skills/`, `topics/*/prompt.md`, `schema/`, `tools/`, CI, and the root authoring flake. Never contains a run implementation, never bumps the root flake's ranim pin (pin bumps happen inside run branches). Every finalized protocol state is tagged `one-shot-base-v<N>`; runs start from the newest tag. |
 | `main` | The **results line**: the protocol plus frozen deliveries under `topics/<topic>/run<N>-<modelslug>/`, and the generated indexes. |
 | `legacy` | Pre-reform archive: five pilot one-shots produced before the protocol existed. Frozen; never merge from it — mine it for reference. |
 
@@ -47,7 +50,7 @@ cd ../ros-<topic>-run<N>
 ```
 
 1. Read `topics/<topic>/prompt.md`. It is verbatim and must never be edited.
-2. Follow `skill/ranim-one-shot/SKILL.md` for methodology.
+2. Follow `.agents/skills/ranim-one-shot/SKILL.md` for methodology.
 3. **First commit on the run branch**: if the topic needs a newer ranim,
    bump the root flake's `ranim` pin (and the matching nightly) — otherwise
    leave it untouched.
@@ -62,7 +65,7 @@ run ordinal, starting at 1.
 ## Protocol freeze
 
 Within a run branch, these paths must remain **byte-identical** to the
-starting tag: `skill/`, `AGENTS.md`, `schema/`, `tools/`,
+starting tag: `.agents/skills/`, `AGENTS.md`, `schema/`, `tools/`,
 `topics/*/prompt.md`. CI enforces this on run-branch PRs. If the protocol
 blocks you, do not edit it — record the problem in `meta.toml`
 (`[protocol] skill_modified / notes`) and continue. Protocol revisions
@@ -92,7 +95,8 @@ are generated from it by `tools/gen-index.py` and never hand-edited.
 - [ ] Run flake frozen: copy the root flake into the run directory, point
       its `ranim` input at the delivered rev, `nix flake lock` committed
 - [ ] `meta.toml` complete (model, harness, protocol ref, run stats, delivery)
-- [ ] Run README per `skill/ranim-one-shot/reference/run-readme-template.md`
+- [ ] Run README per
+      `.agents/skills/ranim-one-shot/reference/run-readme-template.md`
 - [ ] `shadow publish` for the mp4; ref committed; URL backfilled into
       `meta.toml` (`video_ref`)
 - [ ] `python3 tools/gen-index.py` run; generated indexes refreshed

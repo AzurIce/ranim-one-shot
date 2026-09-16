@@ -20,7 +20,7 @@ not) alter it.
 - The pre-protocol pilots live on the `legacy` branch, frozen.
 
 See [AGENTS.md](AGENTS.md) for the full contract, and
-`skill/ranim-one-shot/SKILL.md` for the production methodology.
+`.agents/skills/ranim-one-shot/SKILL.md` for the production methodology.
 
 ## Topics
 

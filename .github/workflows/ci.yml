@@ -118,10 +118,10 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin base
-          if ! git diff --quiet origin/base...HEAD -- skill AGENTS.md schema tools 'topics/*/prompt.md'; then
+          if ! git diff --quiet origin/base...HEAD -- .agents/skills AGENTS.md schema tools 'topics/*/prompt.md'; then
             echo "::error::Protocol files changed relative to base."
             echo "Protocol changes belong on the base branch (with a new one-shot-base-v<N> tag), not in a run."
-            git diff --stat origin/base...HEAD -- skill AGENTS.md schema tools 'topics/*/prompt.md'
+            git diff --stat origin/base...HEAD -- .agents/skills AGENTS.md schema tools 'topics/*/prompt.md'
             exit 1
           fi
 
