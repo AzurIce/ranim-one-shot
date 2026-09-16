@@ -36,6 +36,17 @@
             extensions = [ "rust-src" "rustfmt" "clippy" ];
           });
 
+        # winit/wgpu dlopen the windowing/GL stack at runtime (the binary
+        # only links glibc), so buildInputs alone cannot express the
+        # runtime deps; the package must wrap the binary itself.
+        previewRuntimeLibs = [
+          pkgs.vulkan-loader
+          pkgs.wayland
+          pkgs.libxkbcommon
+          pkgs.libX11
+          pkgs.libGL
+        ];
+
         # ranim's flake.packages.ranim-cli omits the root crate's sources
         # from its crane fileset and fails to build; build the CLI here from
         # the full pinned source tree instead.
@@ -44,6 +55,15 @@
           strictDeps = true;
           cargoExtraArgs = "-p ranim-cli";
           doCheck = false;
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          # Without this, `nix run .#ranim-cli -- preview` dies with winit's
+          # NoWaylandLib when run outside of `nix develop`.
+          postInstall = ''
+            wrapProgram "$out/bin/ranim" \
+              --prefix LD_LIBRARY_PATH : ${
+                lib.makeLibraryPath previewRuntimeLibs
+              }
+          '';
         };
 
         rustToolchain = pkgs.rust-bin.nightly."2026-08-01".default.override {
@@ -68,12 +88,7 @@
           # The renderer (wgpu) needs these libraries at runtime.
           shellHook = lib.optionalString pkgs.stdenv.isLinux ''
             export LD_LIBRARY_PATH="${
-              lib.makeLibraryPath [
-                pkgs.vulkan-loader
-                pkgs.wayland
-                pkgs.libxkbcommon
-                pkgs.libX11
-              ]
+              lib.makeLibraryPath previewRuntimeLibs
             }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
         };
