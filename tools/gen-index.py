@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import tomllib
-from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -128,7 +127,6 @@ def write_site_data(topics: dict[str, list[dict]]) -> None:
         }
 
     data = {
-        "generated": str(date.today()),
         "topics": [
             {
                 "name": topic,
