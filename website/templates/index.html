@@ -28,7 +28,7 @@
       <h2 class="card__title">{{ topic.name }}</h2>
       {% if topic.description %}<p class="card__desc">{{ topic.description }}</p>{% endif %}
       <div class="card__meta">
-        <span>{{ topic.runs | length }} run{{ '' if topic.runs | length == 1 else 's' }}</span>
+        <span>{{ topic.run_count }} {{ topic.run_word }}</span>
         <span>{{ topic.models | join(sep=', ') }}</span>
         <span>
           {% if topic.total_duration_min > 0 %}{{ topic.total_duration_min }} min{% endif %}

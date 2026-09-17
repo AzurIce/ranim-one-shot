@@ -278,6 +278,8 @@ def write_site(topics: dict[str, list[dict]], published_all: dict[str, dict[str,
                     (r["preview"] for r in reversed(site_runs) if r["preview"]), ""
                 ),
                 "models": sorted({r["model"] for r in site_runs if r["model"]}),
+                "run_count": len(site_runs),
+                "run_word": "run" if len(site_runs) == 1 else "runs",
                 "total_duration_min": round(
                     sum(r["duration_s"] or 0 for r in site_runs) / 60, 1
                 ),

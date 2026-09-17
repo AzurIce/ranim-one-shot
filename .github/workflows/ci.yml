@@ -149,5 +149,3 @@ jobs:
           else
             echo "No .shadow directory yet — nothing published, nothing to check."
           fi
-
-  protocol-frozen:
