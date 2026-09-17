@@ -26,7 +26,9 @@ See [AGENTS.md](AGENTS.md) for the full contract, and
 
 <!-- index:start -->
 
-No runs yet — deliveries appear here as they merge to `main`.
+| Topic | Runs | Models | Pins |
+|---|---|---|---|
+| [rubiks_cube](topics/rubiks_cube/) | 1 | GLM-5.3-Flash | [`40d15be6`](https://github.com/AzurIce/ranim/commit/40d15be64edf5c04a78e2db75908e4a192a8e942) |
 
 <!-- index:end -->
 

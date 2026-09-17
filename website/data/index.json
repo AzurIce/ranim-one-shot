@@ -1,3 +1,31 @@
 {
-  "topics": []
+  "topics": [
+    {
+      "name": "rubiks_cube",
+      "description": "Layer-by-layer solve with an in-tree BFS solver, shown on a 3D cube and an unfolded net",
+      "preview": "runs/rubiks_cube/run1-glm53flash/preview.png",
+      "models": [
+        "GLM-5.3-Flash"
+      ],
+      "run_count": 1,
+      "run_word": "run",
+      "total_duration_min": 2.0,
+      "runs": [
+        {
+          "run_dir": "run1-glm53flash",
+          "topic": "rubiks_cube",
+          "description": "Layer-by-layer solve with an in-tree BFS solver, shown on a 3D cube and an unfolded net",
+          "model": "GLM-5.3-Flash",
+          "date": "2026-09-18",
+          "render_rounds": 4,
+          "duration_s": 121,
+          "duration_min": 2.0,
+          "pin": "40d15be64edf5c04a78e2db75908e4a192a8e942",
+          "protocol": "base@7b481996",
+          "preview": "runs/rubiks_cube/run1-glm53flash/preview.png",
+          "video": "https://azurice-shadow.tos-cn-beijing.volces.com/ranim-one-shot/objects/sha256/2f/51df398ca1b653f4ce9cd1400404aae1b035aa778f90fefcddd9283bb2bde2"
+        }
+      ]
+    }
+  ]
 }

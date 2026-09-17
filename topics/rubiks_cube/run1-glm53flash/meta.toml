@@ -1,0 +1,37 @@
+# Schema: schema/meta.toml.example (filled for this run; never hand-edit
+# generated indexes — tools/gen-index.py derives them from this file).
+
+[topic]
+name = "rubiks_cube"
+prompt_ref = "topics/rubiks_cube/prompt.md"
+
+[model]
+name = "GLM-5.3-Flash"
+id = "builtin:bigmodel-coding-plan/GLM-5.3-Flash"
+source = "self-report"
+notes = ""
+
+[harness]
+name = "ZCode CLI"
+version = "3.11.2"
+permission_mode = ""
+skills = [{ name = "ranim-one-shot", ref = "base@7b481996dd8430ef32219a72c820d11be5a36543" }]
+
+[protocol]
+commit = "7b481996dd8430ef32219a72c820d11be5a36543"
+skill_modified = false
+notes = "No protocol blockers hit. Upstream papercuts recorded in the run README: (1) ranim-pin TypstText::new asserts source BYTE length vs glyph count — all non-ASCII text panics, bypassed via direct typst_svg->SvgItem; (2) flat text needs manual billboarding under a perspective camera. gen-index quirk for the next base revision: write_topic_readme passes the outer published dict to run_video, so the topic README Video cell is always an em dash (the website index.json video link is correct)."
+
+[run]
+date = 2026-09-18
+branch = "rubiks_cube-run1-glm53flash"
+description = "Layer-by-layer solve with an in-tree BFS solver, shown on a 3D cube and an unfolded net"
+render_rounds = 4
+wall_time = "≈2h"
+
+[delivery]
+pin = "40d15be64edf5c04a78e2db75908e4a192a8e942"
+duration_s = 121
+resolution = "1920x1080@60"
+tests = 11
+captures = ["preview.png", "hook.png", "anatomy.png", "scrambled.png", "cross.png", "end.png"]

@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           dir=${{ matrix.run }}
           cargo_rev=$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}')
-          flake_rev=$(grep -om1 'github:Azurice/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}')
+          flake_rev=$(grep -om1 'github:AzurIce/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}')
           lock_rev=$(jq -r '.nodes[.nodes.root.inputs.ranim].locked.rev' "$dir/flake.lock")
           echo "$dir: cargo=$cargo_rev flake=$flake_rev lock=$lock_rev"
           if [ -z "$cargo_rev" ] || [ -z "$flake_rev" ] || [ -z "$lock_rev" ] \
@@ -142,6 +142,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install shadow (pinned rev)
         run: cargo install --git https://github.com/AzurIce/shadow --rev ceaaac778ab433f6666957facbf68eeb7c58b918 --locked
+      - name: Restore shadow worktree files
+        if: hashFiles('.shadow/refs/**') != ''
+        run: python3 .github/scripts/restore_shadow.py
       - name: Check shadow invariants
         run: |
           if [ -d .shadow ]; then
