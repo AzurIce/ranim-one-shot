@@ -1,8 +1,8 @@
 # <topic> run<N>-<modelslug> — <一句话标题>
 
-> 本模板为 run README 的固定结构（中文交付）。`<>` 处替换为实际内容；
-> `meta.toml` 是元数据的唯一事实源，本 README 只做叙述与展开，不要复制
-> 元数据表格之外再手抄一份会漂移的数字。
+> 本模板为归档 README 的固定结构（中文交付）。`<>` 处替换为实际内容；
+> 结构化元数据（模型/harness/协议/交付事实）按项目约定的格式存放，本
+> README 只做叙述与展开，不要手抄一份会漂移的数字副本。
 
 ## 1. 效果图
 
@@ -21,7 +21,8 @@ ranim output <topic> --example <topic> <额外 features>
 
 ## 2. 原始 Prompt
 
-逐字引用 `topics/<topic>/prompt.md`（不改动、不翻译），并注明有无附件：
+逐字引用原始 prompt（位置遵循项目约定；不改动、不翻译），并注明有无
+附件：
 
 > <prompt 原文>
 
@@ -56,14 +57,9 @@ ranim output <topic> --example <topic> <额外 features>
 - 测试：用例数与断言内容
 - 渲染：`ranim output` 成片参数（分辨率、时长、帧数）
 - 视觉检查：累计抽检时点数与结论
-- 环境备注：渲染环境（nix develop 等）特殊情况
+- 环境备注：渲染环境的特殊情况
 
-## 6. 环境与协议
+## 6. 环境
 
-| 项 | 值 |
-|---|---|
-| ranim pin | `<full sha>`（详见 meta.toml） |
-| 协议 | `<one-shot-base-vN>`（详见 meta.toml） |
-| 模型 / harness | 详见 meta.toml（含 self-report 标注） |
-
-> 完整结构化元数据见本目录 `meta.toml`——如有出入以 meta.toml 为准。
+模型 / harness / 协议 / pin 等事实性信息按项目约定的结构化元数据存放，
+此处只放指引，如有出入以元数据为准。

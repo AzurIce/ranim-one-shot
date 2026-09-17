@@ -49,6 +49,9 @@ git worktree add -b <topic>-run<N>-<modelslug> ../ros-<topic>-run<N> one-shot-ba
 cd ../ros-<topic>-run<N>
 ```
 
+Do all work inside the root flake's `nix develop` — it carries the pinned
+toolchain, `ffmpeg`, and a `ranim-cli` built from the pinned source.
+
 1. Read `topics/<topic>/prompt.md`. It is verbatim and must never be edited.
 2. Follow `.agents/skills/ranim-one-shot/SKILL.md` for methodology.
 3. **First commit on the run branch**: if the topic needs a newer ranim,
