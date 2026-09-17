@@ -39,4 +39,5 @@ ranim output <topic> --example <topic>   # extra features documented in the run 
 ```
 
 Videos are hosted via [shadow](https://github.com/AzurIce/shadow)
-(content-addressed objects); the links live in each run's `meta.toml`.
+(content-addressed objects); the links are derived from committed refs and
+shown on the [website](https://azurice.github.io/ranim-one-shot/).

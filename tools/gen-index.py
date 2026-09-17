@@ -1,24 +1,45 @@
 #!/usr/bin/env python3
-"""Generate all derived indexes from topics/*/*/meta.toml.
+"""Generate all derived indexes and the website content from
+topics/*/*/meta.toml plus committed shadow refs.
 
 Outputs (idempotent — CI reruns this and fails on any diff):
-  - README.md                    index section between the HTML markers
-  - topics/<topic>/README.md     generated overview: runs table + the
-                                 verbatim prompt
-  - website/data/index.json      aggregate for the website
+  - README.md                     index section between the HTML markers
+  - topics/<topic>/README.md      generated overview: runs table + the
+                                  verbatim prompt
+  - website/data/index.json       aggregate consumed by the home template
+  - website/content/topics/...    Zola section + page files (topic/run)
+  - website/static/runs/...       copies of each run's capture PNGs
 
-topics/*/*/meta.toml is the only input; never hand-edit what this writes.
+topics/*/*/meta.toml and .shadow/refs/ are the only inputs; never
+hand-edit what this writes.
 """
 
 from __future__ import annotations
 
 import json
+import shutil
 import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+SITE = ROOT / "website"
 MARK_START = "<!-- index:start -->"
 MARK_END = "<!-- index:end -->"
+
+# Keep in sync with shadow.toml: <bucket>.<endpoint-host>/<name>/objects/...
+SHADOW_URL_BASE = "https://azurice-shadow.tos-cn-beijing.volces.com/ranim-one-shot/objects"
+
+
+def toml_str(s: str) -> str:
+    """Escape a string as a TOML basic string (single line)."""
+    out = (
+        s.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+        .replace("\r", "\\r")
+    )
+    return f'"{out}"'
 
 
 def fmt_duration(seconds: int) -> str:
@@ -38,9 +59,11 @@ def load_topics() -> dict[str, list[dict]]:
     topics: dict[str, list[dict]] = {}
     for meta_path in sorted(ROOT.glob("topics/*/*/meta.toml")):
         run_dir = meta_path.parent
+        topic = run_dir.parent.name
         meta = tomllib.loads(meta_path.read_text())
         meta["_run_dir"] = run_dir.name
-        topics.setdefault(run_dir.parent.name, []).append(meta)
+        meta["_rel"] = str(run_dir.relative_to(ROOT))
+        topics.setdefault(topic, []).append(meta)
     for runs in topics.values():
         def ordinal(m: dict) -> tuple:
             stem = m["_run_dir"].split("-", 1)[0]  # "run1", "run2", ...
@@ -50,52 +73,40 @@ def load_topics() -> dict[str, list[dict]]:
     return topics
 
 
-def run_row(topic: str, m: dict) -> str:
-    model = m.get("model", {})
-    run = m.get("run", {})
-    delivery = m.get("delivery", {})
-    proto = m.get("protocol", {}).get("ref", "—")
-    video = delivery.get("video_ref", "")
-    video_cell = f"[video]({video})" if video else "—"
-    return (
-        f"| [{m['_run_dir']}]({m['_run_dir']}/) "
-        f"| {model.get('name', '—')} "
-        f"| {run.get('date', '—')} "
-        f"| {run.get('render_rounds', '—')} "
-        f"| {fmt_duration(int(delivery.get('duration_s', 0)))} "
-        f"| {fmt_pin(delivery.get('pin', ''))} "
-        f"| {proto} "
-        f"| {video_cell} |"
-    )
+def shadow_urls(rel: str) -> dict[str, str]:
+    """Map `<run rel>/output/<file>` -> content-addressed URL, derived from
+    the committed .shadow/refs/ tree (one `<path>.ref` per published file)."""
+    refs = ROOT / ".shadow" / "refs" / rel / "output"
+    out: dict[str, str] = {}
+    if refs.is_dir():
+        for ref in sorted(refs.glob("*.ref")):
+            data = tomllib.loads(ref.read_text())
+            oid = str(data.get("oid", ""))
+            kind, _, hexdigest = oid.partition(":")
+            if kind != "sha256" or len(hexdigest) != 64:
+                print(f"gen-index: WARNING unparsable oid in {ref}")
+                continue
+            url = f"{SHADOW_URL_BASE}/{kind}/{hexdigest[:2]}/{hexdigest[2:]}"
+            out[f"{rel}/output/{ref.stem}"] = url
+    return out
 
 
-def write_topic_readme(topic: str, runs: list[dict]) -> None:
-    prompt_path = ROOT / "topics" / topic / "prompt.md"
-    prompt = ""
-    if prompt_path.exists():
-        lines = prompt_path.read_text().splitlines()
-        prompt = "\n".join(
-            ln for ln in lines if not ln.startswith("<!--")
-        ).strip()
-    latest = runs[-1]
-    description = latest.get("run", {}).get("description", "")
+def run_video(rel: str, published: dict[str, str]) -> str:
+    for path, url in sorted(published.items()):
+        if path.endswith(".mp4"):
+            return url
+    return ""
 
-    lines = [
-        f"# {topic}",
-        "",
-        description or f"One-shot runs for the `{topic}` topic.",
-        "",
-        "| Run | Model | Date | Rounds | Duration | Pin | Protocol | Video |",
-        "|---|---|---|---|---|---|---|---|",
-    ]
-    lines += [run_row(topic, m) for m in runs]
-    lines += ["", "## Original prompt", "", "Verbatim, never edited:", ""]
-    if prompt:
-        lines += [prompt]
-    else:
-        lines.append("*(missing: `topics/" + topic + "/prompt.md`)*")
-    out = ROOT / "topics" / topic / "README.md"
-    out.write_text("\n".join(lines).rstrip() + "\n")
+
+def run_copies_captures(run_dir: Path, topic: str, run: str) -> list[str]:
+    """Copy capture PNGs into the site and return their site-relative paths."""
+    dest = SITE / "static" / "runs" / topic / run
+    dest.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for png in sorted(run_dir.glob("*.png")):
+        shutil.copyfile(png, dest / png.name)
+        copied.append(f"runs/{topic}/{run}/{png.name}")
+    return copied
 
 
 def write_root_readme(topics: dict[str, list[dict]]) -> None:
@@ -120,36 +131,172 @@ def write_root_readme(topics: dict[str, list[dict]]) -> None:
     readme.write_text(text)
 
 
-def write_site_data(topics: dict[str, list[dict]]) -> None:
-    def scrub(m: dict) -> dict:
-        return {k: v for k, v in m.items() if not k.startswith("_")} | {
-            "run_dir": m["_run_dir"]
-        }
+def write_topic_readme(topic: str, runs: list[dict], published: dict[str, str]) -> None:
+    prompt_path = ROOT / "topics" / topic / "prompt.md"
+    prompt = ""
+    if prompt_path.exists():
+        lines = prompt_path.read_text().splitlines()
+        prompt = "\n".join(
+            ln for ln in lines if not ln.startswith("<!--")
+        ).strip()
+    latest = runs[-1]
+    description = latest.get("run", {}).get("description", "")
 
-    data = {
-        "topics": [
+    lines = [
+        f"# {topic}",
+        "",
+        description or f"One-shot runs for the `{topic}` topic.",
+        "",
+        "| Run | Model | Date | Rounds | Duration | Pin | Protocol | Video |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for m in runs:
+        model = m.get("model", {})
+        run = m.get("run", {})
+        delivery = m.get("delivery", {})
+        proto = m.get("protocol", {}).get("ref", "—")
+        rel = m["_rel"]
+        video = run_video(rel, published)
+        video_cell = f"[video]({video})" if video else "—"
+        lines.append(
+            f"| [{m['_run_dir']}]({m['_run_dir']}/) "
+            f"| {model.get('name', '—')} "
+            f"| {run.get('date', '—')} "
+            f"| {run.get('render_rounds', '—')} "
+            f"| {fmt_duration(int(delivery.get('duration_s', 0)))} "
+            f"| {fmt_pin(delivery.get('pin', ''))} "
+            f"| {proto} "
+            f"| {video_cell} |"
+        )
+    lines += ["", "## Original prompt", "", "Verbatim, never edited:", ""]
+    if prompt:
+        lines += [prompt]
+    else:
+        lines.append(f"*(missing: `topics/{topic}/prompt.md`)*")
+    out = ROOT / "topics" / topic / "README.md"
+    out.write_text("\n".join(lines).rstrip() + "\n")
+
+
+def write_site(topics: dict[str, list[dict]], published_all: dict[str, dict[str, str]]) -> None:
+    # Regenerate from scratch so deleted runs/topics disappear too.
+    for gen in ("content/topics", "static/runs", "data"):
+        shutil.rmtree(SITE / gen, ignore_errors=True)
+    (SITE / "data").mkdir(parents=True, exist_ok=True)
+
+    site_topics = []
+    for topic, runs in topics.items():
+        latest = runs[-1]
+        prompt_path = ROOT / "topics" / topic / "prompt.md"
+        prompt = ""
+        if prompt_path.exists():
+            prompt = "\n".join(
+                ln
+                for ln in prompt_path.read_text().splitlines()
+                if not ln.startswith("<!--")
+            ).strip()
+        description = latest.get("run", {}).get("description", "")
+
+        section = SITE / "content" / "topics" / topic
+        section.mkdir(parents=True, exist_ok=True)
+        (section / "_index.md").write_text(
+            "+++\n"
+            f'title = "{topic}"\n'
+            'template = "topic.html"\n'
+            f"description = {toml_str(description)}\n"
+            "[extra]\n"
+            f"prompt = {toml_str(prompt)}\n"
+            "+++\n"
+        )
+
+        site_runs = []
+        for m in runs:
+            run = m["_run_dir"]
+            rel = m["_rel"]
+            captures = run_copies_captures(ROOT / rel, topic, run)
+            video = run_video(rel, published_all.get(rel, {}))
+            model = m.get("model", {})
+            runmeta = m.get("run", {})
+            delivery = m.get("delivery", {})
+            protocol = m.get("protocol", {})
+            harness = m.get("harness", {})
+            preview = next((c for c in captures if c.endswith("preview.png")), "")
+            (section / f"{run}.md").write_text(
+                "+++\n"
+                f'title = "{run}"\n'
+                'template = "run.html"\n'
+                f"description = {toml_str(runmeta.get('description', ''))}\n"
+                "[extra]\n"
+                f"topic = {toml_str(topic)}\n"
+                "[extra.model]\n"
+                f"name = {toml_str(str(model.get('name', '')))}\n"
+                f"id = {toml_str(str(model.get('id', '')))}\n"
+                f"source = {toml_str(str(model.get('source', '')))}\n"
+                "[extra.harness]\n"
+                f"name = {toml_str(str(harness.get('name', '')))}\n"
+                f"version = {toml_str(str(harness.get('version', '')))}\n"
+                "[extra.protocol]\n"
+                f"ref = {toml_str(str(protocol.get('ref', '')))}\n"
+                f"skill_modified = {str(bool(protocol.get('skill_modified', False))).lower()}\n"
+                "[extra.run]\n"
+                f"date = {toml_str(str(runmeta.get('date', '')))}\n"
+                f"render_rounds = {int(runmeta.get('render_rounds', 0) or 0)}\n"
+                f"wall_time = {toml_str(str(runmeta.get('wall_time', '')))}\n"
+                "[extra.delivery]\n"
+                f"pin = {toml_str(str(delivery.get('pin', '')))}\n"
+                f"duration_s = {int(delivery.get('duration_s', 0) or 0)}\n"
+                f"duration_min = {round((delivery.get('duration_s', 0) or 0) / 60, 1)}\n"
+                f"resolution = {toml_str(str(delivery.get('resolution', '')))}\n"
+                f"tests = {int(delivery.get('tests', 0) or 0)}\n"
+                f"video = {toml_str(video)}\n"
+                f"previews = {json.dumps(captures)}\n"
+                "+++\n"
+            )
+            site_runs.append(
+                {
+                    "run_dir": run,
+                    "topic": topic,
+                    "description": runmeta.get("description", ""),
+                    "model": model.get("name", ""),
+                    "date": str(runmeta.get("date", "")),
+                    "render_rounds": runmeta.get("render_rounds", 0),
+                    "duration_s": delivery.get("duration_s", 0),
+                    "duration_min": round(
+                        (delivery.get("duration_s", 0) or 0) / 60, 1
+                    ),
+                    "pin": delivery.get("pin", ""),
+                    "protocol": protocol.get("ref", ""),
+                    "preview": preview,
+                    "video": video,
+                }
+            )
+
+        site_topics.append(
             {
                 "name": topic,
-                "runs": [scrub(m) for m in runs],
+                "description": description,
+                "preview": next(
+                    (r["preview"] for r in reversed(site_runs) if r["preview"]), ""
+                ),
+                "models": sorted({r["model"] for r in site_runs if r["model"]}),
+                "total_duration_min": round(
+                    sum(r["duration_s"] or 0 for r in site_runs) / 60, 1
+                ),
+                "runs": site_runs,
             }
-            for topic, runs in topics.items()
-        ],
-    }
-    out = ROOT / "website" / "data"
-    out.mkdir(parents=True, exist_ok=True)
-    # tomllib yields date/datetime objects for unquoted TOML dates; str()
-    # renders them as ISO-8601.
-    (out / "index.json").write_text(
-        json.dumps(data, ensure_ascii=False, indent=2, default=str) + "\n"
+        )
+
+    (SITE / "data" / "index.json").write_text(
+        json.dumps({"topics": site_topics}, ensure_ascii=False, indent=2) + "\n"
     )
 
 
 def main() -> None:
     topics = load_topics()
+    published_all = {m["_rel"]: shadow_urls(m["_rel"]) for runs in topics.values() for m in runs}
     for topic, runs in topics.items():
-        write_topic_readme(topic, runs)
+        write_topic_readme(topic, runs, published_all)
     write_root_readme(topics)
-    write_site_data(topics)
+    write_site(topics, published_all)
     total = sum(len(r) for r in topics.values())
     print(f"gen-index: {len(topics)} topics, {total} runs")
 

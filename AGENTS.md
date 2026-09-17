@@ -100,8 +100,9 @@ are generated from it by `tools/gen-index.py` and never hand-edited.
 - [ ] `meta.toml` complete (model, harness, protocol ref, run stats, delivery)
 - [ ] Run README per
       `.agents/skills/ranim-one-shot/reference/run-readme-template.md`
-- [ ] `shadow publish` for the mp4; ref committed; URL backfilled into
-      `meta.toml` (`video_ref`)
+- [ ] `shadow publish` for the mp4 (`.gitignore`'s `# shadow` section is the
+      manifest); ref committed — `tools/gen-index.py` derives the video URL
+      from the ref, nothing is backfilled by hand
 - [ ] `python3 tools/gen-index.py` run; generated indexes refreshed
 - [ ] CI green, including the protocol-freeze check
 
@@ -112,9 +113,10 @@ are generated from it by `tools/gen-index.py` and never hand-edited.
 ## Media (shadow)
 
 Rendered mp4 files live under the run's `output/` and are **not committed**.
-At delivery: `shadow publish` uploads them as content-addressed objects and
-writes small refs under `.shadow/refs/` (committed). Install with a pinned
-rev — do not track moving HEAD:
+`shadow.toml` publishes them as content-addressed objects; the small refs
+under `.shadow/refs/` are committed and are the only record of the media
+(all generated indexes and the website derive video URLs from them).
+Install with a pinned rev — do not track moving HEAD:
 
 ```bash
 cargo install --git https://github.com/AzurIce/shadow --rev ceaaac778ab433f6666957facbf68eeb7c58b918 --locked
@@ -123,7 +125,16 @@ cargo install --git https://github.com/AzurIce/shadow --rev ceaaac778ab433f66669
 Credentials live in `.env` (`TOS_ACCESS_KEY` / `TOS_SECRET_KEY`,
 gitignored, never committed). **Never run `shadow free` in this
 repository** — frozen artifacts are immutable and their URLs are permanent;
-CI only runs `shadow check --remote`.
+CI only runs `shadow check`.
+
+## Website
+
+`website/` is a small Zola site (same visual family as the ranim site, no
+wasm). All content is generated: `tools/gen-index.py` writes the topic/run
+pages, capture copies and `website/data/index.json` from `meta.toml` +
+`.shadow/refs/`. Preview locally with `zola build` (or `zola serve`) inside
+`website/`; deploy happens via `.github/workflows/website.yml` (GitHub
+Pages on `main` pushes).
 
 ## Adding a topic
 

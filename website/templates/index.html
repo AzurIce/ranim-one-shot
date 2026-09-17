@@ -1,0 +1,41 @@
+{% extends "layouts/base.html" %}
+
+{% block main %}
+{% set data = load_data(path="data/index.json") %}
+<section class="hero">
+  <h1>One prompt, one agent delivery.</h1>
+  <p>
+    Every video below was produced by an AI coding agent in a single
+    one-shot run for <a href="https://github.com/AzurIce/ranim" target="_blank" rel="noreferrer">ranim</a>
+    — a Rust animation library — and is frozen forever: the exact prompt,
+    the exact ranim revision, the model and harness behind it.
+  </p>
+</section>
+
+{% if data.topics | length == 0 %}
+<section class="empty">
+  <p>No runs yet — deliveries appear here as they merge to <code>main</code>.</p>
+</section>
+{% endif %}
+
+<div class="grid">
+  {% for topic in data.topics %}
+  <a class="card" href="{{ get_url(path='topics/' ~ topic.name ~ '/') }}">
+    {% if topic.preview %}
+    <img class="card__preview" src="{{ get_url(path=topic.preview) }}" alt="{{ topic.name }} preview" loading="lazy">
+    {% endif %}
+    <div class="card__body">
+      <h2 class="card__title">{{ topic.name }}</h2>
+      {% if topic.description %}<p class="card__desc">{{ topic.description }}</p>{% endif %}
+      <div class="card__meta">
+        <span>{{ topic.runs | length }} run{{ '' if topic.runs | length == 1 else 's' }}</span>
+        <span>{{ topic.models | join(sep=', ') }}</span>
+        <span>
+          {% if topic.total_duration_min > 0 %}{{ topic.total_duration_min }} min{% endif %}
+        </span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock main %}

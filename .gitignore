@@ -1,13 +1,20 @@
 # Build outputs, at any depth (runs live at topics/<topic>/<run>/).
 /target/
-/output/
-/result
-/result-*
+output/
+result
+result-*
 .DS_Store
 
-# Shadow-managed media are tracked via refs under .shadow/refs/; only the
-# cache must never be committed.
+# Shadow-managed media: bodies stay in the worktree, refs are committed
+# under .shadow/refs/; only the cache is never committed.
+#
+# shadow
+/topics/*/run*/output/**
+
 .shadow/cache/
 .shadow/tmp/
 
 __pycache__/
+
+# Zola build output
+/website/public/

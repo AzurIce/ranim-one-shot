@@ -1,0 +1,45 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ section.title }} — {{ config.title }}{% endblock %}
+
+{% block main %}
+<nav class="crumbs">
+  <a href="{{ get_url(path='/') }}">All topics</a>
+  <span>/</span>
+  <span>{{ section.title }}</span>
+</nav>
+
+<header class="topic-header">
+  <h1>{{ section.title }}</h1>
+  {% if section.extra.description %}<p class="topic-desc">{{ section.extra.description }}</p>{% endif %}
+</header>
+
+<section class="prompt-box">
+  <h2>Original prompt</h2>
+  <p class="prompt-note">Given verbatim to the agent. Never edited between runs.</p>
+  <blockquote>{{ section.extra.prompt }}</blockquote>
+</section>
+
+<h2 class="runs-title">Runs</h2>
+<div class="grid">
+  {% for page in section.pages %}
+  <a class="card" href="{{ page.permalink }}">
+    {% set preview = page.extra.delivery.previews | first | default(value='') %}
+    {% if preview %}
+    <img class="card__preview" src="{{ get_url(path=preview) }}" alt="{{ page.title }} preview" loading="lazy">
+    {% endif %}
+    <div class="card__body">
+      <h2 class="card__title">{{ page.title }}</h2>
+      {% if page.description %}<p class="card__desc">{{ page.description }}</p>{% endif %}
+      <div class="card__meta">
+        <span>{{ page.extra.model.name }}</span>
+        <span>{{ page.extra.run.date }}</span>
+        {% if page.extra.delivery.duration_s > 0 %}
+        <span>{{ page.extra.delivery.duration_min }} min</span>
+        {% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock main %}

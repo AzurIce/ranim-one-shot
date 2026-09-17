@@ -1,0 +1,73 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ page.title }} — {{ config.title }}{% endblock %}
+
+{% block main %}
+{% set d = page.extra.delivery %}
+{% set m = page.extra.model %}
+<nav class="crumbs">
+  <a href="{{ get_url(path='/') }}">All topics</a>
+  <span>/</span>
+  <a href="{{ get_url(path='topics/' ~ page.extra.topic ~ '/') }}">{{ page.extra.topic }}</a>
+  <span>/</span>
+  <span>{{ page.title }}</span>
+</nav>
+
+<header class="topic-header">
+  <h1>{{ page.extra.topic }}</h1>
+  {% if page.description %}<p class="topic-desc">{{ page.description }}</p>{% endif %}
+</header>
+
+{% if d.video %}
+<section class="player">
+  <video controls preload="metadata" src="{{ d.video }}"></video>
+  <p class="player__hint"><a href="{{ d.video }}">Direct link</a> (content-addressed, immutable)</p>
+</section>
+{% else %}
+<section class="empty">
+  <p>Video not published yet.</p>
+</section>
+{% endif %}
+
+<section class="meta-table">
+  <h2>Run facts</h2>
+  <table>
+    <tbody>
+      <tr><th>Model</th><td>{{ m.name }}{% if m.id %} <code>{{ m.id }}</code>{% endif %}
+        {% if m.source %}<span class="tag tag--{{ m.source }}">{{ m.source }}</span>{% endif %}</td></tr>
+      <tr><th>Harness</th><td>{{ page.extra.harness.name }}{% if page.extra.harness.version and page.extra.harness.version != "unknown" %} {{ page.extra.harness.version }}{% endif %}</td></tr>
+      <tr><th>Protocol</th><td>{{ page.extra.protocol.ref }}</td></tr>
+      <tr><th>ranim pin</th><td><a href="https://github.com/AzurIce/ranim/commit/{{ d.pin }}"><code>{{ d.pin }}</code></a></td></tr>
+      <tr><th>Date</th><td>{{ page.extra.run.date }}</td></tr>
+      <tr><th>Render rounds</th><td>{{ page.extra.run.render_rounds }}</td></tr>
+      {% if page.extra.run.wall_time %}<tr><th>Wall time</th><td>{{ page.extra.run.wall_time }}</td></tr>{% endif %}
+      {% if d.duration_s > 0 %}<tr><th>Duration</th><td>{{ d.duration_s }}s @ {{ d.resolution }}</td></tr>{% endif %}
+      {% if d.tests > 0 %}<tr><th>Unit tests</th><td>{{ d.tests }}</td></tr>{% endif %}
+    </tbody>
+  </table>
+</section>
+
+{% if d.previews | length > 0 %}
+<section class="gallery">
+  <h2>Captures</h2>
+  <div class="gallery__grid">
+    {% for p in d.previews %}
+    <figure>
+      <a href="{{ get_url(path=p) }}" target="_blank" rel="noreferrer">
+        <img src="{{ get_url(path=p) }}" alt="{{ p | split(pat='/') | last }}" loading="lazy">
+      </a>
+      <figcaption>{{ p | split(pat='/') | last }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="archive-link">
+  <p>
+    Full archive — design notes, the round-by-round iteration log and the
+    verifiable sources — lives in the repository at
+    <code>topics/{{ page.extra.topic }}/{{ page.title }}/</code>.
+  </p>
+</section>
+{% endblock main %}

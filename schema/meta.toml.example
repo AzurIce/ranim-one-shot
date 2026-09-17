@@ -44,4 +44,5 @@ duration_s = 0                              # final video duration in seconds
 resolution = "1920x1080@60"
 tests = 0                                   # unit test count in the run package
 captures = ["preview.png"]                  # committed capture files
-video_ref = ""                              # shadow URL of the mp4, backfilled after `shadow publish`
+# Video URLs are NOT recorded here — tools/gen-index.py derives them from
+# the committed .shadow/refs/ after `shadow publish`.

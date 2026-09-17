@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="{{ config.description }}">
+  <link rel="stylesheet" href="{{ get_url(path='index.css') }}">
+  <title>{% block title %}{{ config.title }}{% endblock %}</title>
+</head>
+
+<body>
+  <header class="site-header">
+    <nav class="nav">
+      <a href="{{ get_url(path='/') }}" class="nav__brand">ranim<b>-one-shot</b></a>
+      <div class="nav__links">
+        <a href="https://azurice.github.io/ranim/" target="_blank" rel="noreferrer">Ranim</a>
+        <a href="https://github.com/AzurIce/ranim-one-shot" target="_blank" rel="noreferrer">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    {% block main %}{% endblock main %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      One original prompt, one agent delivery — every video on this site is
+      frozen and reproducible. See the
+      <a href="https://github.com/AzurIce/ranim-one-shot">repository</a> for
+      the full archive, prompts and methodology.
+    </div>
+  </footer>
+</body>
+
+</html>

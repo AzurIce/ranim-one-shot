@@ -1,0 +1,8 @@
+# The URL the site will be built for (GitHub Pages project site)
+base_url = "https://azurice.github.io/ranim-one-shot"
+
+title = "ranim-one-shot"
+description = "Frozen one-shot explainer videos for ranim — one prompt, one agent delivery"
+
+compile_sass = true
+build_search_index = false
