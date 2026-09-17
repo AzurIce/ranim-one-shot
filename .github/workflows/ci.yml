@@ -149,6 +149,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install shadow (pinned rev)
         run: cargo install --git https://github.com/AzurIce/shadow --rev ceaaac778ab433f6666957facbf68eeb7c58b918 --locked
+      - name: Restore shadow worktree files
+        if: hashFiles('.shadow/refs/**') != ''
+        run: shadow restore
       - name: Check shadow invariants
         run: |
           if [ -d .shadow ]; then
