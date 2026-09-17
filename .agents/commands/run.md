@@ -1,5 +1,7 @@
 ---
 description: 启动一次 one-shot run（用法：/run <topic> <model-slug> [run序号]）
+argument-hint: <topic> <model-slug> [run序号]
+skills: ranim-one-shot
 ---
 
 用户要为一个 topic 启动一次 one-shot run。参数：$ARGUMENTS，依次为
