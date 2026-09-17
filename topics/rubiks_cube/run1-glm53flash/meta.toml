@@ -20,7 +20,7 @@ skills = [{ name = "ranim-one-shot", ref = "base@7b481996dd8430ef32219a72c820d11
 [protocol]
 commit = "7b481996dd8430ef32219a72c820d11be5a36543"
 skill_modified = false
-notes = "No protocol blockers hit. Two upstream (ranim pin) papercuts recorded in the run README: TypstText::new asserts source BYTE length vs glyph count (all non-ASCII text panics; bypassed via direct typst_svg->SvgItem), and flat text must be billboarded to the camera manually under a perspective camera."
+notes = "No protocol blockers hit. Upstream papercuts recorded in the run README: (1) ranim-pin TypstText::new asserts source BYTE length vs glyph count — all non-ASCII text panics, bypassed via direct typst_svg->SvgItem; (2) flat text needs manual billboarding under a perspective camera. gen-index quirk for the next base revision: write_topic_readme passes the outer published dict to run_video, so the topic README Video cell is always an em dash (the website index.json video link is correct)."
 
 [run]
 date = 2026-09-18
