@@ -33,7 +33,7 @@ use ranim::{
     glam::{DAffine3, DVec3, dvec3},
     items::{
         mesh::MeshItem,
-        vitem::{VItem, geometry::Square, typst::TypstText},
+        vitem::{VItem, geometry::Square, svg::SvgItem, typst::typst_svg},
     },
     prelude::*,
     utils::rate_functions::{linear, smooth},
@@ -1425,8 +1425,12 @@ const SCRAMBLE_SEED: u64 = 0x7b;
 const SCRAMBLE_LEN: usize = 20;
 
 /// Build a text group from a typst string, scaled to height `h`.
+///
+/// The svg is compiled directly instead of going through `TypstText`: at
+/// this pin its constructor asserts the source's *byte* length against the
+/// glyph count, which always fails for non-ASCII text (CJK included).
 fn text_items(s: &str, h: f64, color: AlphaColor<Srgb>) -> Vec<VItem> {
-    let mut items = Vec::<VItem>::from(TypstText::new(s));
+    let mut items = Vec::<VItem>::from(SvgItem::new(typst_svg(s)));
     items.scale_to(ScaleHint::PorportionalY(h));
     for it in items.iter_mut() {
         it.set_fill_color(color);
@@ -1446,10 +1450,22 @@ struct NetFrame {
 struct Timeline {
     cubies: Vec<Cubie>,
     stickers: Vec<NetSticker>,
+    /// Item groups advanced by the shared clock (face letters, net frame).
     extra: Vec<AnimSequence>,
+    /// Text groups. Each carries its complete lifecycle (fade in, hold,
+    /// fade out at absolute times) from the moment of creation, so the
+    /// global clock must never append to them — appended dead time past
+    /// their fade out would stretch the scene past the camera's end.
+    texts: Vec<AnimSequence>,
     frame: Option<NetFrame>,
     state: State,
     clock: f64,
+    /// Camera-aligned basis (screen right/up) and the net's center; every
+    /// flat item (texts, net frame) is billboarded with them so they read
+    /// correctly under the perspective camera.
+    net_center: DVec3,
+    right: DVec3,
+    up: DVec3,
 }
 
 impl Timeline {
@@ -1470,7 +1486,7 @@ impl Timeline {
     }
 
     /// Play one face turn on the 3D cube and the net, advancing the clock.
-    fn turn(&mut self, mv: Move, dur: f64, net_center: DVec3, right: DVec3, up: DVec3) {
+    fn turn(&mut self, mv: Move, dur: f64) {
         let axis_ivec = FACE_NORMALS[mv.face as usize];
         let axis = to_dvec(axis_ivec);
         let angle = mv.angle();
@@ -1515,7 +1531,7 @@ impl Timeline {
         }
 
         if let Some(f) = &mut self.frame {
-            let center = net_block_center(mv.face as usize, net_center, right, up);
+            let center = net_block_center(mv.face as usize, self.net_center, self.right, self.up);
             f.seq.hold(dur * 0.4);
             f.seq.push(
                 f.item
@@ -1533,15 +1549,23 @@ impl Timeline {
     }
 
     /// Add a text group that fades in now, holds for `life`, fades out.
+    /// The glyphs are billboarded onto the camera-aligned plane so they read
+    /// upright under the perspective camera.
     fn text(&mut self, s: &str, h: f64, pos: DVec3, color: AlphaColor<Srgb>, fade: f64, life: f64) {
         let mut items = text_items(s, h, color);
+        items.apply(DAffine3::from_cols(
+            self.right,
+            self.up,
+            self.right.cross(self.up),
+            DVec3::ZERO,
+        ));
         items.move_to(pos);
         let mut seq = AnimSequence::new();
         seq.forward_to(self.clock);
         seq.push(items.fade_in().with_duration(fade).with_rate_func(linear));
         seq.hold(life);
         seq.push(items.fade_out().with_duration(fade).with_rate_func(linear));
-        self.extra.push(seq);
+        self.texts.push(seq);
     }
 }
 
@@ -1577,9 +1601,10 @@ fn rubiks_cube(r: &mut RanimScene) {
     let solve_total: usize = phases.iter().map(|(_, ms)| ms.len()).sum();
 
     let net_center = target + screen_right * 4.35;
-    let card_center = target + screen_right * 4.35 + screen_up * 2.6;
-    let caption_below = target + screen_right * 4.35 - screen_up * 2.6;
+    // Long captions live on the frame's center axis so they never clip at
+    // the right edge under the perspective camera.
     let top_center = target + screen_up * 2.9;
+    let bottom_center = target - screen_up * 3.1;
 
     // 3D cube: 26 cubies centered at the origin.
     let cubies: Vec<Cubie> = (-1..=1)
@@ -1625,9 +1650,13 @@ fn rubiks_cube(r: &mut RanimScene) {
         cubies,
         stickers,
         extra: Vec::new(),
+        texts: Vec::new(),
         frame: None,
         state: solved_state(),
         clock: 0.0,
+        net_center,
+        right: screen_right,
+        up: screen_up,
     };
     let mut captures: Vec<(f64, &str)> = Vec::new();
 
@@ -1659,7 +1688,9 @@ fn rubiks_cube(r: &mut RanimScene) {
     tl.clock += intro;
     tl.hold(1.0);
 
-    // Whole-cube spin (all cubies together, 360° = identity).
+    // Whole-cube spin (all cubies together, 360° = identity). The cubies
+    // carry the spin themselves, so the remaining groups advance by hand —
+    // a full `hold` here would double-advance the cubie sequences.
     let spin_dur = 5.0;
     for cubie in &mut tl.cubies {
         let anim = CubieTurn {
@@ -1673,7 +1704,13 @@ fn rubiks_cube(r: &mut RanimScene) {
                 .with_rate_func(smooth),
         );
     }
-    tl.hold(spin_dur);
+    for sticker in &mut tl.stickers {
+        sticker.seq.hold(spin_dur);
+    }
+    for e in &mut tl.extra {
+        e.hold(spin_dur);
+    }
+    tl.clock += spin_dur;
     captures.push((tl.clock - 2.0, "hook.png"));
     tl.hold(1.5);
 
@@ -1681,7 +1718,7 @@ fn rubiks_cube(r: &mut RanimScene) {
     tl.text(
         "认识魔方 · 26 个小块",
         0.5,
-        card_center,
+        top_center,
         manim::YELLOW_C,
         0.8,
         12.0,
@@ -1691,6 +1728,12 @@ fn rubiks_cube(r: &mut RanimScene) {
     for (face, letter) in FACE_LETTERS.iter().enumerate() {
         let pos = net_block_center(face, net_center, screen_right, screen_up) - cam.facing * 0.02;
         let mut items = text_items(letter, NET_SIZE * 0.6, manim::BLACK);
+        items.apply(DAffine3::from_cols(
+            screen_right,
+            screen_up,
+            screen_right.cross(screen_up),
+            DVec3::ZERO,
+        ));
         items.move_to(pos);
         let mut seq = AnimSequence::new();
         seq.forward_to(tl.clock);
@@ -1704,13 +1747,13 @@ fn rubiks_cube(r: &mut RanimScene) {
         ("12 条棱块 · 两色，位置和朝向都要对", 2.4),
         ("8 个角块 · 三色，最难缠的部分", 2.4),
     ] {
-        tl.text(text, 0.36, caption_below, manim::WHITE, 0.5, life);
+        tl.text(text, 0.36, bottom_center, manim::WHITE, 0.5, life);
         tl.hold(3.0);
     }
     tl.text(
         "策略：分层推进 · 每层完成后永不被破坏",
         0.42,
-        caption_below,
+        bottom_center,
         manim::YELLOW_C,
         0.7,
         2.6,
@@ -1722,10 +1765,10 @@ fn rubiks_cube(r: &mut RanimScene) {
     tl.text(
         &format!("打乱 {SCRAMBLE_LEN} 步"),
         0.46,
-        card_center,
+        top_center,
         manim::WHITE,
         0.6,
-        12.5,
+        11.0,
     );
     tl.hold(1.2);
 
@@ -1738,6 +1781,12 @@ fn rubiks_cube(r: &mut RanimScene) {
             screen_up,
         );
         let mut item = VItem::from(Square::new(NET_SIZE * 3.12));
+        item.apply(DAffine3::from_cols(
+            screen_right,
+            screen_up,
+            screen_right.cross(screen_up),
+            DVec3::ZERO,
+        ));
         item.move_to(start_center);
         item.set_stroke_color(manim::YELLOW_C);
         item.set_stroke_width(0.05);
@@ -1750,7 +1799,7 @@ fn rubiks_cube(r: &mut RanimScene) {
 
     for &mv in &scramble {
         let dur = if mv.quarter == 2 { 0.7 } else { 0.55 };
-        tl.turn(mv, dur, net_center, screen_right, screen_up);
+        tl.turn(mv, dur);
     }
     captures.push((tl.clock, "scrambled.png"));
     tl.hold(1.6);
@@ -1772,11 +1821,11 @@ fn rubiks_cube(r: &mut RanimScene) {
                 2 => "求解 · 第 3 步 中层棱块",
                 _ => "求解 · 第 4 步 顶层",
             };
-            tl.text(title, 0.55, card_center, manim::YELLOW_C, 0.7, 2.0);
+            tl.text(title, 0.55, top_center, manim::YELLOW_C, 0.7, 2.0);
             tl.hold(2.6);
             last_umbrella = umbrella;
         } else if umbrella < 0 {
-            tl.text(phase.title(), 0.4, card_center, manim::GREY_B, 0.5, 1.2);
+            tl.text(phase.title(), 0.4, top_center, manim::GREY_B, 0.5, 1.2);
             tl.hold(1.6);
         }
 
@@ -1792,12 +1841,18 @@ fn rubiks_cube(r: &mut RanimScene) {
             _ => 0.36,
         };
         for &mv in moves {
-            tl.turn(mv, dur, net_center, screen_right, screen_up);
+            tl.turn(mv, dur);
         }
         if *phase == Phase::Cross {
             captures.push((tl.clock, "cross.png"));
         }
         tl.hold(0.7);
+    }
+
+    // Retire the highlight frame once the solve is done.
+    if let Some(f) = &mut tl.frame {
+        f.seq
+            .push(f.item.fade_out().with_duration(0.6).with_rate_func(linear));
     }
 
     // -- Act 4: outro ------------------------------------------------------
@@ -1821,54 +1876,75 @@ fn rubiks_cube(r: &mut RanimScene) {
     tl.text(
         &format!("打乱 {SCRAMBLE_LEN} 步 · 求解 {solve_total} 步 · 复原"),
         0.6,
-        card_center,
+        top_center,
         manim::YELLOW_C,
         0.8,
-        5.2,
+        4.7,
     );
     tl.hold(1.2);
     tl.text(
         &detail,
         0.36,
-        card_center - screen_up * 0.85,
+        top_center - screen_up * 0.78,
         manim::GREY_B,
         0.8,
-        4.4,
+        3.0,
     );
     tl.hold(1.2);
     tl.text(
         "分而治之：每一步都只动还没完成的部分",
         0.44,
-        top_center,
+        bottom_center,
         manim::WHITE,
         0.8,
-        3.6,
+        2.3,
     );
     tl.hold(2.6);
+    captures.push((tl.clock - 0.35, "end.png"));
+    // Tail pad: keeps the last rendered frame strictly inside the timeline.
+    // With a duration that is an exact multiple of the frame time, the final
+    // frame of `ranim output` lands on the timeline end where every cell
+    // (including the camera) has already ended (D0002).
+    tl.hold(0.13);
 
     // Compose everything on one timeline.
     let total = tl.clock;
+    let end = total + 1.5;
+    if cfg!(test) {
+        eprintln!("[scene] timeline total = {total:.4}");
+    }
     let mut content = AnimStack::new();
     for mut cubie in tl.cubies {
-        cubie.seq.hold_to(total);
+        cubie.seq.hold_to(end);
         content.push(cubie.seq);
     }
     for mut sticker in tl.stickers {
-        sticker.seq.hold_to(total);
+        sticker.seq.hold_to(end);
         content.push(sticker.seq);
     }
     for mut e in tl.extra {
-        e.hold_to(total);
+        e.hold_to(end);
         content.push(e);
     }
+    // Text sequences are already complete; extending them would only add
+    // invisible dead time past the camera's end.
+    for t in tl.texts {
+        content.push(t);
+    }
     if let Some(mut f) = tl.frame {
-        f.seq.hold_to(total);
+        f.seq.hold_to(end);
         content.push(f.seq);
     }
 
-    r.play(cam.show().with_duration(total));
+    // The tail renders as a short frozen ending beat on the solved cube.
+    // The camera and the content share this end so nothing pops out of the
+    // frame while the last texts are fading; the extra length also absorbs
+    // the net frame's fade out, which can spill past `total`.
+    r.play(cam.show().with_duration(end));
     r.play(content);
 
+    // Marks must be inserted in timeline order for the capture pass.
+    captures.sort_by(|a, b| a.0.total_cmp(&b.0));
     for (t, name) in captures {
         r.insert_time_mark(t.min(total - 0.2), TimeMark::Capture(name.to_string()));
     }
@@ -2165,6 +2241,82 @@ mod seed_scan {
             let total: usize = phases.iter().map(|(_, ms)| ms.len()).sum();
             let counts: Vec<usize> = phases.iter().map(|(_, ms)| ms.len()).collect();
             println!("seed {seed:#x}: total {total} phases {counts:?}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod capture_probe {
+    use super::*;
+    use ranim::core::core_item::CoreItem;
+
+    /// Regression guard for the D0002 renderer panic: every sampled frame
+    /// that still carries items must carry exactly one active CameraFrame.
+    /// (A lifecycle sequence that outlives the camera cell — e.g. from dead
+    /// time appended after its fade out — aborts the render at that frame.)
+    #[test]
+    fn every_rendered_frame_has_exactly_one_camera() {
+        let mut scene = RanimScene::new();
+        rubiks_cube(&mut scene);
+        let sealed = scene.seal();
+        assert!(
+            sealed.total_secs() < 123.0,
+            "scene stretched to {:.2}s — some sequence outlives the timeline",
+            sealed.total_secs()
+        );
+        let total = sealed.total_secs();
+        let mut evaluator = sealed.into_evaluator(120.0);
+        let mut frame = Vec::new();
+        evaluator.sample_at(total + 4.9, &mut frame);
+        let mut camera = 0usize;
+        let mut vitem = 0usize;
+        let mut mesh = 0usize;
+        for (_, item) in &frame {
+            match item {
+                CoreItem::CameraFrame(_) => camera += 1,
+                CoreItem::MeshItem(_) => mesh += 1,
+                CoreItem::VItem(_) => vitem += 1,
+            }
+        }
+        println!(
+            "[probe] at total+4.9: items={frame_len} camera={camera} vitem={vitem} mesh={mesh}",
+            frame_len = frame.len()
+        );
+        let mut last_nonempty = (0.0f64, 0usize);
+        let mut tt = 0.0f64;
+        while tt <= total + 15.0 {
+            let mut f2 = Vec::new();
+            evaluator.sample_at(tt, &mut f2);
+            if !f2.is_empty() {
+                last_nonempty = (tt, f2.len());
+            }
+            tt += 0.1;
+        }
+        println!(
+            "[probe] last non-empty frame at t={:.2} ({} items)",
+            last_nonempty.0, last_nonempty.1
+        );
+        let mut frame = Vec::new();
+        let mut t = 0.0f64;
+        while t <= total {
+            evaluator.sample_at(t, &mut frame);
+            let cameras = frame
+                .iter()
+                .filter(|(_, item)| matches!(item, CoreItem::CameraFrame(_)))
+                .count();
+            assert!(
+                !(frame.is_empty() && cameras == 0) || frame.is_empty(),
+                "frame at {t:.2}: {} items with {} cameras",
+                frame.len(),
+                cameras
+            );
+            assert_eq!(
+                cameras,
+                if frame.is_empty() { 0 } else { 1 },
+                "frame at {t:.2} must carry exactly one camera"
+            );
+            frame.clear();
+            t += 0.25;
         }
     }
 }
