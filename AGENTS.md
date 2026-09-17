@@ -14,14 +14,14 @@ repository *contract* lives here.
 
 | Branch | Purpose |
 |---|---|
-| `base` | The **protocol line**: this file, `.agents/skills/`, `topics/*/prompt.md`, `schema/`, `tools/`, CI, and the root authoring flake. Never contains a run implementation, never bumps the root flake's ranim pin (pin bumps happen inside run branches). Every finalized protocol state is tagged `one-shot-base-v<N>`; runs start from the newest tag. |
+| `base` | The **protocol line**: this file, `.agents/skills/`, `topics/*/prompt.md`, `schema/`, `tools/`, CI, and the root authoring flake. Never contains a run implementation, never bumps the root flake's ranim pin (pin bumps happen inside run branches). Runs start from the `base` branch tip; base history is append-only, so every past protocol state stays reachable. |
 | `main` | The **results line**: the protocol plus frozen deliveries under `topics/<topic>/run<N>-<modelslug>/`, and the generated indexes. |
 | `legacy` | Pre-reform archive: five pilot one-shots produced before the protocol existed. Frozen; never merge from it — mine it for reference. |
 
-`base` and `main` share their root commit, so run branches (which fork from a
-`one-shot-base-v*` tag on `base`) merge back into `main` as normal three-way
-merges. After a protocol change, `base` may be merged into `main` to keep
-documentation current.
+`base` and `main` share their root commit, so run branches (which fork from
+the `base` branch) merge back into `main` as normal three-way merges. After
+a protocol change, `base` may be merged into `main` to keep documentation
+current.
 
 ## Frozen-delivery discipline
 
@@ -44,9 +44,10 @@ broken, the fix is another run, not a patch.
 ## Starting a run
 
 ```bash
-git fetch --tags origin
-git worktree add -b <topic>-run<N>-<modelslug> ../ros-<topic>-run<N> one-shot-base-v<N>
+git fetch origin
+git worktree add -b <topic>-run<N>-<modelslug> ../ros-<topic>-run<N> origin/base
 cd ../ros-<topic>-run<N>
+git rev-parse HEAD   # the fork commit — record it in meta.toml [protocol] commit
 ```
 
 Do all work inside the root flake's `nix develop` — it carries the pinned
@@ -72,8 +73,7 @@ starting tag: `.agents/skills/`, `AGENTS.md`, `schema/`, `tools/`,
 `topics/*/prompt.md`. CI enforces this on run-branch PRs. If the protocol
 blocks you, do not edit it — record the problem in `meta.toml`
 (`[protocol] skill_modified / notes`) and continue. Protocol revisions
-happen **between runs**, as commits on `base` followed by a new
-`one-shot-base-v<N>` tag.
+happen **between runs**, as commits on `base`.
 
 ## `meta.toml`
 
@@ -139,8 +139,7 @@ Pages on `main` pushes).
 ## Adding a topic
 
 PR against **`base`** adding `topics/<t>/prompt.md` — the verbatim prompt,
-never paraphrased. After merge, tag `one-shot-base-v<N+1>`; subsequent runs
-start from the new tag.
+never paraphrased. Subsequent runs simply start from the updated `base`.
 
 ## Language
 

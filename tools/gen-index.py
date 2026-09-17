@@ -49,6 +49,14 @@ def fmt_duration(seconds: int) -> str:
     return f"{seconds}s ({m}:{s:02d})" if m else f"{seconds}s"
 
 
+def proto_display(protocol: dict) -> str:
+    """`base@<short-sha>` derived from the recorded fork commit."""
+    commit = str(protocol.get("commit", ""))
+    if commit:
+        return f"base@{commit[:8]}"
+    return str(protocol.get("ref", "")) or "—"
+
+
 def fmt_pin(pin: str) -> str:
     if not pin or set(pin) == {"0"}:
         return "—"
@@ -154,7 +162,7 @@ def write_topic_readme(topic: str, runs: list[dict], published: dict[str, str]) 
         model = m.get("model", {})
         run = m.get("run", {})
         delivery = m.get("delivery", {})
-        proto = m.get("protocol", {}).get("ref", "—")
+        proto = proto_display(m.get("protocol", {}))
         rel = m["_rel"]
         video = run_video(rel, published)
         video_cell = f"[video]({video})" if video else "—"
@@ -235,7 +243,8 @@ def write_site(topics: dict[str, list[dict]], published_all: dict[str, dict[str,
                 f"name = {toml_str(str(harness.get('name', '')))}\n"
                 f"version = {toml_str(str(harness.get('version', '')))}\n"
                 "[extra.protocol]\n"
-                f"ref = {toml_str(str(protocol.get('ref', '')))}\n"
+                f"ref = {toml_str(proto_display(protocol))}\n"
+                f"commit = {toml_str(str(protocol.get('commit', '')))}\n"
                 f"skill_modified = {str(bool(protocol.get('skill_modified', False))).lower()}\n"
                 "[extra.run]\n"
                 f"date = {toml_str(str(runmeta.get('date', '')))}\n"
@@ -264,7 +273,7 @@ def write_site(topics: dict[str, list[dict]], published_all: dict[str, dict[str,
                         (delivery.get("duration_s", 0) or 0) / 60, 1
                     ),
                     "pin": delivery.get("pin", ""),
-                    "protocol": protocol.get("ref", ""),
+                    "protocol": proto_display(protocol),
                     "preview": preview,
                     "video": video,
                 }

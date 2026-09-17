@@ -9,10 +9,10 @@ not) alter it.
 ## How this repository works
 
 - The **protocol** (conventions, methodology skill, prompts, tooling) lives
-  on the `base` branch; every finalized protocol state is tagged
-  `one-shot-base-v<N>`.
-- A **run** = one agent one-shot: a worktree forked from the newest
-  `one-shot-base-v*` tag, delivered as a frozen standalone cargo package at
+  on the `base` branch; runs always fork from its tip, and its append-only
+  history keeps every past protocol state reachable.
+- A **run** = one agent one-shot: a worktree forked from `base`, delivered
+  as a frozen standalone cargo package at
   `topics/<topic>/run<N>-<modelslug>/` on `main`, with its own `Cargo.lock`
   and flake pinning the exact ranim rev that produced the render.
 - `meta.toml` in each run is the single source of truth for model, harness,
