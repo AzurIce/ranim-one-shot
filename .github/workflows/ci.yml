@@ -38,16 +38,9 @@ jobs:
         run: |
           set -euo pipefail
           dir=${{ matrix.run }}
-          echo "DEBUG g1: [$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}')]"
-          echo "DEBUG g2: [$(grep -om1 'github:AzurIce/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}')]"
-          echo "DEBUG g3: [$(jq -r '.nodes[.nodes.root.inputs.ranim].locked.rev' "$dir/flake.lock")]"
-          ls -la "$dir"/flake.* || echo "DEBUG no flake files"
-          cargo_rev=$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}') || echo "A1 FAILED=$?"
-          echo "A1=[$cargo_rev]"
-          flake_rev=$(grep -om1 'github:AzurIce/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}') || echo "A2 FAILED=$?"
-          echo "A2=[$flake_rev]"
-          lock_rev=$(jq -r '.nodes[.nodes.root.inputs.ranim].locked.rev' "$dir/flake.lock") || echo "A3 FAILED=$?"
-          echo "A3=[$lock_rev]"
+          cargo_rev=$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}')
+          flake_rev=$(grep -om1 'github:AzurIce/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}')
+          lock_rev=$(jq -r '.nodes[.nodes.root.inputs.ranim].locked.rev' "$dir/flake.lock")
           echo "$dir: cargo=$cargo_rev flake=$flake_rev lock=$lock_rev"
           if [ -z "$cargo_rev" ] || [ -z "$flake_rev" ] || [ -z "$lock_rev" ] \
             || [ "$cargo_rev" != "$flake_rev" ] || [ "$cargo_rev" != "$lock_rev" ]; then
