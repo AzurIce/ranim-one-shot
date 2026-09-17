@@ -11,13 +11,15 @@ import urllib.request
 
 BASE = "https://azurice-shadow.tos-cn-beijing.volces.com/ranim-one-shot/objects"
 
+refs_dir = pathlib.Path(".shadow/refs")
 jobs = []
-for ref in pathlib.Path(".shadow/refs").rglob("*.ref"):
+for ref in refs_dir.rglob("*.ref"):
     data = tomllib.loads(ref.read_text())
     kind, _, hexd = str(data["oid"]).partition(":")
     if kind != "sha256" or len(hexd) != 64:
         raise SystemExit(f"unparsable oid in {ref}")
-    dest = ref.with_suffix("")
+    # .shadow/refs/<run>/output/<file>.ref -> worktree file <run>/output/<file>
+    dest = ref.relative_to(refs_dir).with_suffix("")
     url = f"{BASE}/{kind}/{hexd[:2]}/{hexd[2:]}"
     jobs.append((dest, url, int(data.get("size", 0))))
 
