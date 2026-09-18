@@ -1,0 +1,47 @@
+# Schema for topics/<topic>/run<N>-<modelslug>/meta.toml
+#
+# Filled per schema/meta.toml.example. The ranim pin equals the revs in
+# Cargo.toml / flake.nix / flake.lock (CI checks).
+
+[topic]
+name = "convolution_kernels"
+prompt_ref = "topics/convolution_kernels/prompt.md"
+
+[model]
+name = "GLM-5.3-Flash"
+id = "builtin:bigmodel-coding-plan/GLM-5.3-Flash"
+source = "self-report"
+notes = ""
+
+[harness]
+name = "ZCode CLI"
+version = "unknown"
+permission_mode = ""
+skills = [{ name = "ranim-one-shot", ref = "base@bb07e7c" }]
+
+[protocol]
+commit = "bb07e7c2b6a0228f2cdf68d5e15ffaa06864f520"
+skill_modified = false
+notes = "SKILL.md 引用的 reference/scene-skeleton.rs 在该 base 提交不存在，改为直接研读 pinned rev 的 ranim 源码与自带 examples。"
+
+[run]
+date = 2026-09-18
+branch = "convolution_kernels-run1-glm53flash"
+description = "用五种常用 3×3 卷积核（盒式模糊、锐化、Laplacian 边缘、Sobel X/Y）演示图像卷积：内置真实卷积实现驱动滑动窗口扫描与逐格显现"
+render_rounds = 5
+wall_time = "1h20m"
+
+[delivery]
+pin = "40d15be64edf5c04a78e2db75908e4a192a8e942"
+duration_s = 98
+resolution = "1920x1080@60"
+tests = 10
+captures = [
+  "preview.png",
+  "numbers.png",
+  "mechanism.png",
+  "scan_box.png",
+  "scan_edge.png",
+  "scan_sobelx.png",
+  "scan_sobely.png",
+]

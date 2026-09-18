@@ -99,8 +99,16 @@ fn cell_center3(base: DVec3, pitch: f64, i: usize, j: usize) -> DVec3 {
     )
 }
 
-/// 值填充的像素网格，网格中心在 `base`。
-fn pixel_grid(vals: &[f64], base: DVec3, pitch: f64, size: f64, stroke_w: f32) -> Vec<VItem> {
+/// 值填充的像素网格：`n × n` 格，网格中心在 `base`。
+fn pixel_grid(
+    vals: &[f64],
+    n: usize,
+    base: DVec3,
+    pitch: f64,
+    size: f64,
+    stroke_w: f32,
+) -> Vec<VItem> {
+    let half = (n as f64 - 1.0) / 2.0;
     vals.iter()
         .enumerate()
         .map(|(idx, &v)| {
@@ -108,7 +116,11 @@ fn pixel_grid(vals: &[f64], base: DVec3, pitch: f64, size: f64, stroke_w: f32) -
                 sq.set_fill_color(gray(v))
                     .set_stroke_color(PIXEL_STROKE)
                     .set_stroke_width(stroke_w)
-                    .move_to(cell_center(base, pitch, idx / N, idx % N));
+                    .move_to(dvec3(
+                        base.x + ((idx % n) as f64 - half) * pitch,
+                        base.y - ((idx / n) as f64 - half) * pitch,
+                        0.0,
+                    ));
             })
         })
         .collect()
@@ -236,7 +248,9 @@ impl Eval for WindowEval {
         } else if t < self.in_t1 {
             op *= (t - self.in_t0) / (self.in_t1 - self.in_t0);
         }
-        r.set_opacity(op as f32);
+        // 只调描边透明度：窗口填充是"透明黑"（RGB=黑，α=0），
+        // set_opacity 会把填充的 α 一并提到 1，渲染成实心黑块。
+        r.set_stroke_opacity(op as f32);
         r
     }
 }
@@ -244,7 +258,7 @@ impl Eval for WindowEval {
 /// 序幕：源图亮相，抛出"一个 3×3 方阵，三种命运"的钩子。
 fn act_hook(stack: &mut AnimStack) {
     let t = T_HOOK;
-    let image = pixel_grid(&source_image(), dvec3(0.0, 0.55, 0.0), 0.55, 0.5, 0.008);
+    let image = pixel_grid(&source_image(), N, dvec3(0.0, 0.55, 0.0), 0.55, 0.5, 0.008);
     // 三个词各自成组定位，再拼成一个组。
     let mut words: Vec<VItem> = Vec::new();
     for (i, (w, c)) in ["模糊", "锐利", "描边"]
@@ -332,7 +346,7 @@ fn act_numbers(stack: &mut AnimStack, img: &[f64]) {
     let t = T_NUMBERS;
     let base = dvec3(-3.6, 0.0, 0.0);
     let (pitch, size) = (0.55, 0.5);
-    let grid = pixel_grid(img, base, pitch, size, 0.008);
+    let grid = pixel_grid(img, N, base, pitch, size, 0.008);
     let label = text("一张 10×10 的灰度图", 0.42, rgb8(210, 210, 220))
         .with(|g| g.move_to(dvec3(base.x, -3.3, 0.0)).discard());
     // 放大区：行 2..=6、列 3..=7。
@@ -348,7 +362,7 @@ fn act_numbers(stack: &mut AnimStack, img: &[f64]) {
         0.035,
     );
     let zoom_base = dvec3(3.9, 0.3, 0.0);
-    let zoom = pixel_grid(&crop_vals, zoom_base, 0.98, 0.9, 0.008);
+    let zoom = pixel_grid(&crop_vals, 5, zoom_base, 0.98, 0.9, 0.008);
     let zoom_nums: Vec<VItem> = crop_vals
         .iter()
         .enumerate()
@@ -387,7 +401,7 @@ fn act_mechanism(stack: &mut AnimStack, img: &[f64], worked: &Worked) {
     let crop_vals: Vec<f64> = (zr..zr + 5)
         .flat_map(|i| (zc..zc + 5).map(move |j| img[i * N + j]))
         .collect();
-    let in_grid = pixel_grid(&crop_vals, in_base, pitch, size, 0.008);
+    let in_grid = pixel_grid(&crop_vals, 5, in_base, pitch, size, 0.008);
     let in_nums: Vec<VItem> = crop_vals
         .iter()
         .enumerate()
@@ -438,8 +452,8 @@ fn act_mechanism(stack: &mut AnimStack, img: &[f64], worked: &Worked) {
     // 算式：三行九个乘积 + 一行汇总，全部是真实数字。
     let p = worked.products;
     let row1 = format!("{:.2} + {:.2} + {:.2}", p[0], p[1], p[2]);
-    let row2 = format!("+ {:.2} + {:.2} + {:.2}", p[3], p[4], p[5]);
-    let row3 = format!("+ {:.2} + {:.2} + {:.2}", p[6], p[7], p[8]);
+    let row2 = format!("{:.2} + {:.2} + {:.2}", p[3], p[4], p[5]);
+    let row3 = format!("{:.2} + {:.2} + {:.2}", p[6], p[7], p[8]);
     let final_row = format!("= {:.2} ÷ 9 = {:.2}", worked.sum, worked.mean);
     let arith_rows: Vec<Vec<VItem>> = [
         text(&row1, 0.34, rgb8(225, 225, 232)),
@@ -592,8 +606,8 @@ fn act_kernel_scan(stack: &mut AnimStack, t0: f64, idx: usize) {
     let fade_t0 = 8.7;
     let act_dur = ACT_SCAN;
 
-    let in_grid = pixel_grid(&img, in_base, pitch, size, 0.007);
-    let out_grid = pixel_grid(&out_vals, out_base, pitch, size, 0.007);
+    let in_grid = pixel_grid(&img, N, in_base, pitch, size, 0.007);
+    let out_grid = pixel_grid(&out_vals, N, out_base, pitch, size, 0.007);
     let k_cells: Vec<VItem> = (0..9)
         .map(|c| {
             VItem::from(Square::new(0.6)).with(|sq| {
@@ -619,27 +633,25 @@ fn act_kernel_scan(stack: &mut AnimStack, t0: f64, idx: usize) {
     let label = text(k.label, 0.52, accent).with(|g| g.move_to(dvec3(0.0, 2.75, 0.0)).discard());
     let label_in = text("输入", 0.38, rgb8(200, 200, 210))
         .with(|g| g.move_to(dvec3(in_base.x, -3.05, 0.0)).discard());
-    let label_out = text("输出", 0.38, rgb8(200, 200, 210))
-        .with(|g| g.move_to(dvec3(out_base.x, -3.05, 0.0)).discard());
-    let note: Vec<VItem> = if k.signed {
-        text("灰度 = 响应的绝对值", 0.26, rgb8(170, 170, 185))
-            .with(|g| g.move_to(dvec3(out_base.x, -3.5, 0.0)).discard())
+    // 有符号核的显示约定并入输出标签，避免与底部字幕重叠。
+    let label_out = if k.signed {
+        text("输出（灰度 = 响应的绝对值）", 0.34, rgb8(185, 185, 198))
+            .with(|g| g.move_to(dvec3(out_base.x, -3.05, 0.0)).discard())
     } else {
-        Vec::new()
+        text("输出", 0.38, rgb8(200, 200, 210))
+            .with(|g| g.move_to(dvec3(out_base.x, -3.05, 0.0)).discard())
     };
     let caption =
         text(k.caption, 0.46, manim::WHITE).with(|g| g.move_to(dvec3(0.0, -3.7, 0.0)).discard());
 
     stack.push(group_life(&in_grid, t0, t0 + fade_t0));
-    stack.push(group_life(&out_grid, t0, t0 + fade_t0));
+    // 输出网格不整组淡入：它由 RevealEval 驱动，随扫描逐格显现，
+    // 整组淡入会把"未扫到"的格子提前亮出来。
     stack.push(group_life(&k_cells, t0 + 0.2, t0 + fade_t0));
     stack.push(group_life(&k_nums, t0 + 0.6, t0 + fade_t0));
     stack.push(group_life(&label, t0 + 0.1, t0 + fade_t0));
     stack.push(group_life(&label_in, t0 + 0.4, t0 + fade_t0));
     stack.push(group_life(&label_out, t0 + 0.4, t0 + fade_t0));
-    if !note.is_empty() {
-        stack.push(group_life(&note, t0 + 0.6, t0 + fade_t0));
-    }
     stack.push(group_life(&caption, t0 + 7.0, t0 + fade_t0));
 
     let centers: Vec<DVec3> = (0..N * N)
@@ -686,11 +698,11 @@ fn act_summary(stack: &mut AnimStack, img: &[f64]) {
     let (pitch, size) = (0.24, 0.225);
     let cols = [-4.4, 0.0, 4.4];
     let rows_y = [1.45, -1.75];
-    let mut panels: Vec<Vec<VItem>> = vec![pixel_grid(img, DVec3::ZERO, pitch, size, 0.005)];
+    let mut panels: Vec<Vec<VItem>> = vec![pixel_grid(img, N, DVec3::ZERO, pitch, size, 0.005)];
     for k in KERNELS.iter() {
         let out = convolve(img, &k.kernel);
         let vals: Vec<f64> = out.iter().map(|v| display_value(*v, k.signed)).collect();
-        panels.push(pixel_grid(&vals, DVec3::ZERO, pitch, size, 0.005));
+        panels.push(pixel_grid(&vals, N, DVec3::ZERO, pitch, size, 0.005));
     }
     let labels_src = ["输入", "盒式模糊", "锐化", "边缘检测", "Sobel X", "Sobel Y"];
     let mut groups: Vec<(Vec<VItem>, Vec<VItem>)> = Vec::new();
@@ -715,8 +727,8 @@ fn act_summary(stack: &mut AnimStack, img: &[f64]) {
         groups.push((placed, label));
     }
     let closing = text(
-        "同一个滑动窗口，九个不同的权重——卷积核，就是看图的一种方式。",
-        0.48,
+        "同一个滑动窗口，九种权重——卷积核，就是看图的一种方式。",
+        0.46,
         manim::WHITE,
     )
     .with(|g| g.move_to(dvec3(0.0, 3.55, 0.0)).discard());
@@ -752,10 +764,10 @@ fn capture_marks() -> Vec<(f64, &'static str)> {
     vec![
         (T_NUMBERS + 9.5, "numbers.png"),
         (T_MECH + 8.0, "mechanism.png"),
-        (T_SCAN + 4.2, "scan_box.png"),
-        (T_SCAN + 2.0 * ACT_SCAN + 4.2, "scan_edge.png"),
-        (T_SCAN + 3.0 * ACT_SCAN + 4.2, "scan_sobelx.png"),
-        (T_SCAN + 4.0 * ACT_SCAN + 4.2, "scan_sobely.png"),
+        (T_SCAN + 4.5, "scan_box.png"),
+        (T_SCAN + 2.0 * ACT_SCAN + 4.5, "scan_edge.png"),
+        (T_SCAN + 3.0 * ACT_SCAN + 4.5, "scan_sobelx.png"),
+        (T_SCAN + 4.0 * ACT_SCAN + 4.5, "scan_sobely.png"),
         (T_SUMMARY + 6.0, "preview.png"),
     ]
 }
