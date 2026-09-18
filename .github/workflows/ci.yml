@@ -38,8 +38,10 @@ jobs:
         run: |
           set -euo pipefail
           dir=${{ matrix.run }}
-          cargo_rev=$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}')
-          flake_rev=$(grep -om1 'github:Azurice/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}')
+          echo "--- $dir/Cargo.toml ---"
+          cat "$dir/Cargo.toml"
+          cargo_rev=$(grep -om1 'rev = "[0-9a-f]\{40\}' "$dir/Cargo.toml" | grep -o '[0-9a-f]\{40\}' || true)
+          flake_rev=$(grep -om1 'github:AzurIce/ranim/[0-9a-f]\{40\}' "$dir/flake.nix" | grep -o '[0-9a-f]\{40\}' || true)
           lock_rev=$(jq -r '.nodes[.nodes.root.inputs.ranim].locked.rev' "$dir/flake.lock")
           echo "$dir: cargo=$cargo_rev flake=$flake_rev lock=$lock_rev"
           if [ -z "$cargo_rev" ] || [ -z "$flake_rev" ] || [ -z "$lock_rev" ] \
@@ -140,12 +142,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install shadow (pinned rev)
-        run: cargo install --git https://github.com/AzurIce/shadow --rev ceaaac778ab433f6666957facbf68eeb7c58b918 --locked
+      # The full `shadow check` needs the published bodies in the worktree;
+      # they are gitignored and absent on CI. CI verifies the committed refs
+      # — the sole record of the media and the input gen-index derives video
+      # URLs from — are well-formed. Run `shadow check` on authoring
+      # machines where the bodies exist.
       - name: Check shadow invariants
         run: |
-          if [ -d .shadow ]; then
-            shadow check
-          else
-            echo "No .shadow directory yet — nothing published, nothing to check."
+          if [ ! -d .shadow/refs ]; then
+            echo "No .shadow refs yet — nothing published, nothing to check."
+            exit 0
           fi
+          python3 - <<'PY'
+          import re
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          refs = sorted(Path(".shadow/refs").rglob("*.ref"))
+          if not refs:
+              print("no refs found under .shadow/refs")
+              sys.exit(1)
+          bad = 0
+          for ref in refs:
+              data = tomllib.loads(ref.read_text())
+              oid = str(data.get("oid", ""))
+              size = data.get("size", 0)
+              ok = (
+                  re.fullmatch(r"sha256:[0-9a-f]{64}", oid) is not None
+                  and isinstance(size, int)
+                  and size > 0
+              )
+              if not ok:
+                  print(f"invalid ref: {ref}")
+                  bad += 1
+          print(f"{len(refs)} refs checked, {bad} invalid")
+          sys.exit(1 if bad else 0)
+          PY
