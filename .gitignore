@@ -1,9 +1,15 @@
 # Build outputs, at any depth (runs live at topics/<topic>/<run>/).
-/target/
-output/
+target/
+# Root-level authoring output only; run outputs are covered by the
+# /topics/*/run*/output/** rule below. Unanchored "output/" would also
+# swallow .shadow/refs/**/output/, which must be committed.
+/output/
 result
 result-*
 .DS_Store
+
+# Shadow credentials (TOS_ACCESS_KEY / TOS_SECRET_KEY) — never commit.
+.env
 
 # Shadow-managed media: bodies stay in the worktree, refs are committed
 # under .shadow/refs/; only the cache is never committed.
