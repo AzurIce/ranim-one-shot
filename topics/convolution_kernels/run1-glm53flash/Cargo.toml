@@ -1,0 +1,15 @@
+[package]
+name = "convolution_kernels"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+ranim = { git = "https://github.com/AzurIce/ranim", rev = "40d15be64edf5c04a78e2db75908e4a192a8e942", features = [
+  "typst",
+] }
+
+[[example]]
+name = "convolution_kernels"
+path = "examples/convolution_kernels/lib.rs"
+crate-type = ["cdylib"]
