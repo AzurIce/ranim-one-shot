@@ -22,7 +22,7 @@ skills = [{ name = "ranim-one-shot", ref = "base@bb07e7c" }]
 [protocol]
 commit = "bb07e7c2b6a0228f2cdf68d5e15ffaa06864f520"
 skill_modified = false
-notes = "SKILL.md 引用的 reference/scene-skeleton.rs 在该 base 提交不存在，改为直接研读 pinned rev 的 ranim 源码与自带 examples。"
+notes = "SKILL.md 引用的 reference/scene-skeleton.rs 在该 base 提交不存在，改为直接研读 pinned rev 的 ranim 源码与自带 examples。另：CI 的 shadow-check job 与协议自相矛盾——媒体 body 被 gitignore、CI 上永远缺失，而 shadow check 要求 ref 有对应 body，任何 run 一旦发布该 job 必红；本次在 .github/workflows/ci.yml（不在冻结清单）内改为校验已提交 refs 的格式，完整 shadow check 留给有 body 的开发机。"
 
 [run]
 date = 2026-09-18
