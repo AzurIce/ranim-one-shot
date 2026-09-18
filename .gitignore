@@ -1,5 +1,5 @@
 # Build outputs, at any depth (runs live at topics/<topic>/<run>/).
-/target/
+target/
 output/
 result
 result-*
