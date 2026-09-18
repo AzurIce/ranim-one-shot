@@ -56,20 +56,7 @@ description: 用 ranim 以 one-shot 方式制作一个完整的讲解/科普动�
   也更容易撑起新颖的可视化形式。ranim 仓库自带的 examples（如
   nbody、cloth_wrap、iterative_spring）是这条路线的参照，写之前先翻一翻。
 
-## 4. 已知坑（ranim / typst）
-
-与所选结构无关，遇到对应场景时直接规避：
-
-- **typst markup**：`_` 触发强调，字面下划线要写 `\_`；`#`、`~` 会被吞
-  掉，必须转义；em dash 前后留白偏宽，密集文案可用 `·`。
-- **文字高亮**：对"文字放进容器"的物件，高亮只改容器的填充/描边；
-  加宽字形描边会糊成色团。
-- **按 key 查找物件**：警惕同 key 多实例与已消费实体——查找命中旧对象
-  会让该消失的东西残留。用"标记消费 + 过滤查找"，不要边遍历边删除。
-- **消费模拟输出**：对每个分支显式 `match`，不 `unwrap`——新引入的
-  失败分支上的 unwrap 是渲染期 panic 的常见来源。
-
-## 5. 渲染 → 目检 → 迭代
+## 4. 渲染 → 目检 → 迭代
 
 每轮循环：
 
@@ -84,13 +71,13 @@ description: 用 ranim 以 one-shot 方式制作一个完整的讲解/科普动�
 5. 循环直到一轮抽检零新问题，再做终版：`ranim output` 出片 + 全片抽检
    复核（含全部 capture 时点）。
 
-## 6. 验证
+## 5. 验证
 
 - `cargo check` / `clippy`（含 features）/ `fmt` / `test` 全绿零警告。
 - 终版抽检：确认历史修复全部生效且无回归。
 - `ranim output` 成片成功，mp4 与 captures 就位。
 
-## 7. 归档
+## 6. 归档
 
 - 归档 README 使用固定章节（模板见
   `reference/run-readme-template.md`）：效果图 / 原始 prompt 逐字引用 /
