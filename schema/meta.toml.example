@@ -23,11 +23,11 @@ notes = ""                                  # e.g. plan/endpoint quirks worth re
 name = "ZCode CLI"                          # e.g. "ZCode CLI", "kimi-code"
 version = "unknown"                         # CLI version if it reports one
 permission_mode = ""                        # agent permission mode, if applicable
-skills = [{ name = "ranim-one-shot", ref = "base@<short-sha>" }]  # skills provided to the run
+skills = []                                 # skills explicitly provided to the run, if any
 
 [protocol]
 commit = ""                                 # full 40-hex sha of the base commit this run forked from
-skill_modified = false                      # true only if CI's freeze check would fire
+protocol_modified = false                   # true only if CI's freeze check would fire
 notes = ""                                  # protocol problems hit during the run (input to the next revision)
 
 [run]

@@ -245,7 +245,7 @@ def write_site(topics: dict[str, list[dict]], published_all: dict[str, dict[str,
                 "[extra.protocol]\n"
                 f"ref = {toml_str(proto_display(protocol))}\n"
                 f"commit = {toml_str(str(protocol.get('commit', '')))}\n"
-                f"skill_modified = {str(bool(protocol.get('skill_modified', False))).lower()}\n"
+                f"protocol_modified = {str(bool(protocol.get('protocol_modified', False))).lower()}\n"
                 "[extra.run]\n"
                 f"date = {toml_str(str(runmeta.get('date', '')))}\n"
                 f"render_rounds = {int(runmeta.get('render_rounds', 0) or 0)}\n"

@@ -8,7 +8,7 @@ not) alter it.
 
 ## How this repository works
 
-- The **protocol** (conventions, methodology skill, prompts, tooling) lives
+- The **protocol** (conventions, prompts, tooling) lives
   on the `base` branch; runs always fork from its tip, and its append-only
   history keeps every past protocol state reachable.
 - A **run** = one agent one-shot: a worktree forked from `base`, delivered
@@ -19,8 +19,9 @@ not) alter it.
   protocol, and delivery facts; all indexes below are generated from it.
 - The pre-protocol pilots live on the `legacy` branch, frozen.
 
-See [AGENTS.md](AGENTS.md) for the full contract, and
-`.agents/skills/ranim-one-shot/SKILL.md` for the production methodology.
+See [AGENTS.md](AGENTS.md) for the full contract. A run is driven by its
+prompt alone; the `legacy` branch keeps five pre-reform one-shots to mine
+for reference.
 
 ## Topics
 
